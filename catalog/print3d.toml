@@ -16,6 +16,6 @@ es = "Impresión 3D"
 pt = "Impressão 3D"
 
 [summary]
-en = "Gets a model ready for a 3D printer: overhangs, wall thickness, trapped cavities, gaps between parts, size on the bed, best orientation, lay flat on a face, hole repair, gyroid infill under a skin, and 3MF (with colours) or STL export at the print scale."
-es = "Prepara un modelo para una impresora 3D: voladizos, espesor de pared, cavidades cerradas, holguras entre piezas, tamaño en la cama, orientación óptima, apoyar sobre una cara, reparación de agujeros, relleno giroide bajo una piel y exportación a 3MF (con colores) o STL a la escala de impresión."
-pt = "Prepara um modelo para uma impressora 3D: balanços, espessura de parede, cavidades fechadas, folgas entre peças, tamanho na mesa, orientação ideal, apoiar sobre uma face, reparo de furos, preenchimento giroide sob uma pele e exportação para 3MF (com cores) ou STL na escala de impressão."
+en = "Gets a model ready for a 3D printer: overhangs, wall thickness, cavities, gaps, bed size, best orientation, hole repair, clean STL import, gyroid infill and 3MF/STL export at the print scale."
+es = "Prepara un modelo para imprimir en 3D: voladizos, paredes, cavidades, holguras, tamaño en la cama, orientación óptima, reparar agujeros, importar STL, relleno giroide y exportar 3MF/STL a escala."
+pt = "Prepara um modelo para impressão 3D: balanços, paredes, cavidades, folgas, tamanho na mesa, orientação ideal, reparo de furos, importação STL, preenchimento giroide e exportação 3MF/STL em escala."
