@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2 — 2026-10-31
+
+- The print scale belongs to the model: kept in its .igz (one undo step
+  when changed), 1:1 for a model that has none — no longer carried from
+  one model to the next (a bunny at 1:1 analysed at the 1:1000 left by a
+  building hung IngeTrazo). A typed scale that is not one goes back.
+- A print size under 2 mm or over 20 m is flagged («check the print
+  scale») and the wall and gap checks are skipped instead of running away.
+
 ## 0.4.1 — 2026-10-31
 
 - Analyse about three times faster on a mesh (the bunny: 3.5 s → 1.3 s):

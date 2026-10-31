@@ -168,9 +168,11 @@ class Panel(QWidget):
         self.scale = QComboBox()
         self.scale.setEditable(True)
         self.scale.addItems(SCALES)
-        self.scale.setCurrentText(str(self._settings.value(_KEY + "scale", "1:1")))
-        self.scale.currentTextChanged.connect(
-            lambda s: self._settings.setValue(_KEY + "scale", s))
+        # the print scale belongs to the model (saved in its .igz): a
+        # building at 1:50 and a bracket at 1:1 must not share one setting
+        self.scale.setCurrentText(self._doc_scale())
+        self.scale.activated.connect(lambda _i: self._scale_set())
+        self.scale.lineEdit().editingFinished.connect(self._scale_set)
         self.scale.setToolTip(t("Printed size : model size, e.g. 1:50 for a building model."))
         self.bed = QComboBox()
         for x, y, z in BEDS:
@@ -342,6 +344,34 @@ class Panel(QWidget):
         root.addWidget(scroll)
         self._update_scope()
 
+    def _doc_scale(self) -> str:
+        data = self.app.document_data(default={}) or {}
+        return str(data.get("scale", "1:1"))
+
+    def set_scale(self, text: str) -> None:
+        """Change the print scale (kept in the document, one undo step)."""
+        self.scale.setCurrentText(text)
+        self._scale_set()
+
+    def _scale_set(self) -> None:
+        import re
+        text = self.scale.currentText().strip().replace(" ", "")
+        if not re.fullmatch(r"\d+([.,]\d+)?:\d+([.,]\d+)?", text) or parse_scale(text) <= 0:
+            self._sync_scale(force=True)            # not a scale: back to the model's
+            return
+        if text == self._doc_scale():
+            return
+        data = dict(self.app.document_data(default={}) or {})
+        data["scale"] = text
+        self.app.set_document_data(data)
+
+    def _sync_scale(self, force: bool = False) -> None:
+        want = self._doc_scale()
+        if force or self.scale.currentText() != want:
+            self.scale.blockSignals(True)
+            self.scale.setCurrentText(want)
+            self.scale.blockSignals(False)
+
     def _bed_changed(self, i) -> None:
         self._settings.setValue(_KEY + "bed", i)
         custom = i >= len(BEDS)
@@ -440,6 +470,12 @@ class Panel(QWidget):
         lines = []
         self.result = {"bodies": bodies, "up": up, "level": level}
         self._update_scope(len(bodies), from_sel)
+
+        printed = float(mesh3d.extents(allt, up).max() * k)
+        if printed < 2.0 or printed > 20000.0:
+            lines.append(f"{BAD_DOT} " + t("At {s} the parts print {d} mm long: check the print scale. Wall and gap checks skipped.",
+                                            s=self.scale.currentText(), d=num(printed, 2)))
+            what = [w for w in what if w not in ("thickness", "gaps")]
 
         if "watertight" in what:
             closed = sum(1 for b in bodies if B.watertight(b))
@@ -680,6 +716,7 @@ class Panel(QWidget):
         self.app.viewport.update()
 
     def _document_changed(self) -> None:
+        self._sync_scale()
         cv = self.scene.content_version
         if "holes" in self.layers and cv != self.holes_cv:
             self.layers.pop("holes", None)

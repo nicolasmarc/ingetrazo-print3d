@@ -224,6 +224,8 @@ FR = {
         '{n} triangles importés',
     '{k} edges under {d} mm merged':
         '{k} arêtes de moins de {d} mm fusionnées',
+    'At {s} the parts print {d} mm long: check the print scale. Wall and gap checks skipped.':
+        "Au {s}, les pièces font {d} mm imprimées : vérifiez l'échelle d'impression. Contrôles de parois et de jeux non faits.",
 }
 
 ES = {
@@ -445,6 +447,8 @@ ES = {
         '{n} triángulos importados',
     '{k} edges under {d} mm merged':
         '{k} aristas de menos de {d} mm fusionadas',
+    'At {s} the parts print {d} mm long: check the print scale. Wall and gap checks skipped.':
+        'A {s} las piezas miden {d} mm impresas: revisa la escala de impresión. No se comprueban paredes ni holguras.',
 }
 
 _ALL = {"fr": FR, "es": ES}

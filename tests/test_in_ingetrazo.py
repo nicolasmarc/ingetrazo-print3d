@@ -383,3 +383,23 @@ def test_stl_import_survives_the_weld(panel, tmp_path):
     ok, vol = solid_report(group.mesh)
     assert ok
     assert vol == pytest.approx(4 / 3 * np.pi * 0.02 ** 3, rel=0.01)
+
+
+def test_print_scale_belongs_to_the_document(panel):
+    vp = panel.app.viewport
+    panel.set_scale("1:50")
+    assert panel.app.document_data(default={})["scale"] == "1:50"
+    assert panel.k() == pytest.approx(1000 / 50)
+    vp.history.undo()
+    vp.notify_scene_changed()
+    assert panel.scale.currentText() == "1:1"        # the model's own again
+    panel.set_scale("nonsense")
+    assert panel.scale.currentText() == "1:1"
+
+
+def test_an_absurd_print_size_skips_the_heavy_checks(panel):
+    panel.set_scale("1:1000")                        # the 90 mm bench: 0.09 mm
+    panel.run(["thickness", "gaps", "fits"])
+    s = _text(panel)
+    assert "check the print scale" in s and "Walls under" not in s
+    panel.app.viewport.history.undo()
