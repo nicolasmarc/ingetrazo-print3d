@@ -8,14 +8,14 @@ import math
 
 import numpy as np
 from PySide6.QtCore import QLocale, QPointF, QSettings, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QPen, QPolygonF
-from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget,
+from PySide6.QtGui import QColor, QPainterPath, QPen, QPolygonF
+from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget, QSlider,
                                QDoubleSpinBox, QFileDialog, QFormLayout,
                                QGridLayout, QGroupBox, QHBoxLayout, QLabel,
                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from . import bodies as B
-from . import export, icons, mesh3d
+from . import export, icons, lattice, mesh3d
 from .lang import N_, lang, num, t
 
 RED = QColor(220, 40, 40)
@@ -70,11 +70,17 @@ class Panel(QWidget):
         self.busy = False
         self.orient_rows: list = []
         self._asked_depth = None
+        self._infill_cache: dict = {}
+        self.infill_preview: list = []
+        self.preview_cv = None
         self._settings = QSettings()
         self._build()
         app.add_overlay(self._paint)
         app.on_document_changed(self._document_changed)
         app.add_pickable(pick=self._pick, on_select=None, delete=None)
+        inst = QApplication.instance()
+        if inst is not None:              # let the infill meshes go before exit
+            inst.aboutToQuit.connect(self._infill_cache.clear)
 
     # ---- widgets -------------------------------------------------------------
     def _button(self, key, text, slot, tip=None):
@@ -205,6 +211,45 @@ class Panel(QWidget):
         g.addWidget(self.orient_box, 4, 0, 1, 2)
         lay.addWidget(box)
 
+        box = QGroupBox(t("Gyroid infill"))
+        form = QFormLayout(box)
+        intro = QLabel(t("Lightens a part: it keeps a skin, its inside becomes a gyroid. Made at export; the model stays light."))
+        intro.setWordWrap(True)
+        intro.setStyleSheet("color: gray;")
+        form.addRow(intro)
+        self.cell = self._spin("cell", 6.0, 1.0, 200.0, " mm", 1, 0.5)
+        self.cell.setToolTip(t("Size of one gyroid cell, printed."))
+        self.sheet = self._spin("sheet", 0.8, 0.2, 20.0, " mm", 2, 0.1)
+        self.sheet.setToolTip(t("Thickness of the gyroid's wall, printed."))
+        self.skin = self._spin("skin", 1.2, 0.0, 50.0, " mm", 1, 0.2)
+        self.skin.setToolTip(t("Solid outer wall kept around the gyroid; 0 = gyroid only."))
+        form.addRow(t("Cell size"), self.cell)
+        form.addRow(t("Gyroid wall"), self.sheet)
+        form.addRow(t("Skin"), self.skin)
+        row = QHBoxLayout()
+        row.addWidget(self._button("Gyroid infill", N_("Apply to the selection"), self.apply_infill,
+                                   N_("The selected parts get a gyroid infill with these settings (one undo step).")))
+        rm = QPushButton(t("Remove"))
+        rm.setToolTip(t("The selected parts print solid again."))
+        rm.clicked.connect(self.remove_infill)
+        row.addWidget(rm)
+        form.addRow(row)
+        row = QHBoxLayout()
+        row.addWidget(self._button("Preview a cut", N_("Preview a cut"), self.preview_infill,
+                                   N_("Builds the infill of the selected parts and draws a cut through it.")))
+        self.cut = QSlider(Qt.Horizontal)
+        self.cut.setRange(1, 99)
+        self.cut.setValue(50)
+        self.cut.setToolTip(t("Height of the cut"))
+        self.cut.valueChanged.connect(self._update_cut)
+        row.addWidget(self.cut, 1)
+        form.addRow(row)
+        self.infill_info = QLabel()
+        self.infill_info.setTextFormat(Qt.RichText)
+        self.infill_info.setWordWrap(True)
+        form.addRow(self.infill_info)
+        lay.addWidget(box)
+
         box = QGroupBox(t("Export"))
         g = QGridLayout(box)
         g.addWidget(self._button("3MF (colours)…", N_("3MF (colours)…"), self.export_3mf,
@@ -290,7 +335,8 @@ class Panel(QWidget):
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             self._run(bodies, from_sel, what)
-            self.shown = set(show if show is not None else what)
+            self.shown = set(show if show is not None else what) | (
+                {"section"} if "section" in self.layers else set())
         finally:
             QApplication.restoreOverrideCursor()
             self.busy = False
@@ -302,7 +348,7 @@ class Panel(QWidget):
         level = mesh3d.bed_level(allt, up)
         tol = max(1e-6, 1e-6 * float(np.ptp(allt.reshape(-1, 3), axis=0).max()))
         k = self.k()
-        self.layers = {}
+        self.layers = {key: v for key, v in self.layers.items() if key == "section"}
         self._clear_orient_rows()
         lines = []
         self.result = {"bodies": bodies, "up": up, "level": level}
@@ -539,20 +585,27 @@ class Panel(QWidget):
     def clear(self) -> None:
         self.layers = {}
         self.shown = set()
+        self.infill_preview = []
         self._clear_orient_rows()
         self.app.viewport.update()
 
     def _document_changed(self) -> None:
+        cv = self.scene.content_version
+        if self.infill_preview and cv != self.preview_cv:
+            self.infill_preview = []
+            self.layers.pop("section", None)
+            self.app.viewport.update()
         if not self.layers or self.analysed_cv is None:
             return
-        if self.scene.content_version != self.analysed_cv:
-            self.layers = {}
+        if cv != self.analysed_cv:
+            for key in [k for k in self.layers if k != "section"]:
+                self.layers.pop(key)
             self._clear_orient_rows()
             self.summary.setText(t("The model changed: press Analyse again."))
             self.app.viewport.update()
 
     def _paint(self, vp, painter) -> None:
-        if not self.layers or self.result is None:
+        if not self.layers:
             return
         from PySide6.QtGui import QPainter
         painter.setRenderHint(QPainter.Antialiasing)
@@ -564,6 +617,8 @@ class Panel(QWidget):
                 # a cavity is inside the part: drawn through it on purpose
                 self._paint_tris(painter, item[0], item[1], eye, key != "cavities",
                                  depth if key != "cavities" else None)
+        if self.layers.get("section") and "section" in self.shown:
+            self._paint_section(painter, self.layers["section"])
         if self.layers.get("gaps") and "gaps" in self.shown:
             self._paint_gaps(painter, self.layers["gaps"])
         if self.layers.get("fits") and "fits" in self.shown:
@@ -726,24 +781,184 @@ class Panel(QWidget):
                 return
         self.status(t("The Solid Inspector is in Window ▸ Panels."), 5000)
 
-    def _print_bodies(self):
+    def _print_frame(self, bodies):
+        """World → print millimetres: turned so the build direction is +Z,
+        scaled, the lowest corner of all the parts at the origin."""
+        up = self.up()
+        axis, deg = mesh3d.rotation_between(up, [0, 0, 1])
+        k = self.k()
+        allp = mesh3d.rotate(np.concatenate([b.tris.reshape(-1, 3) for b in bodies]),
+                             axis, deg) * k
+        return axis, deg, k, allp.min(0)
+
+    @staticmethod
+    def _to_print(frame, pts):
+        axis, deg, k, lo = frame
+        return mesh3d.rotate(np.asarray(pts, float).reshape(-1, 3), axis, deg) * k - lo
+
+    @staticmethod
+    def _to_world(frame, pts):
+        axis, deg, k, lo = frame
+        return mesh3d.rotate((np.asarray(pts, float).reshape(-1, 3) + lo) / k, axis, -deg)
+
+    def _print_bodies(self, with_infill: bool = True):
         """The parts as the printer gets them: millimetres at the print
-        scale, the build direction along +Z, the lowest corner at 0."""
+        scale, the build direction along +Z, the lowest corner at 0; a
+        part with a gyroid infill gets it now."""
         bodies, _sel = self._bodies()
         if bodies is None:
             return None
-        up = self.up()
-        axis, deg = mesh3d.rotation_between(up, [0, 0, 1])
-        out = []
+        frame = self._print_frame(bodies)
+        out, skipped = [], []
         for b in bodies:
-            p = mesh3d.rotate(b.tris.reshape(-1, 3), axis, deg) * self.k()
-            out.append({"name": b.name or t("Loose geometry"),
-                        "tris": p.reshape(-1, 3, 3), "colours": b.colours,
-                        "colour_names": b.colour_names})
-        lo = np.concatenate([o["tris"].reshape(-1, 3) for o in out]).min(0)
-        for o in out:
-            o["tris"] = o["tris"] - lo
+            tris = self._to_print(frame, b.tris).reshape(-1, 3, 3)
+            o = {"name": b.name or t("Loose geometry"), "tris": tris,
+                 "colours": b.colours, "colour_names": b.colour_names}
+            params = self.infill_of(b.group)
+            if with_infill and params:
+                try:
+                    man, _info = self._infill(b, tris, params, frame)
+                    o["tris"] = lattice.to_tris(man)
+                    main = b.colours[np.argmax(mesh3d.normals_areas(b.tris)[1])]
+                    o["colours"] = np.tile(main, (len(o["tris"]), 1))
+                except lattice.LatticeError as exc:
+                    skipped.append((o["name"], str(exc)))
+            out.append(o)
+        for name, why in skipped:
+            self.status(t("{p}: infill left out ({why})", p=name, why=t(why)), 8000)
         return out
+
+    # ---- gyroid infill ---------------------------------------------------------------
+    def infill_of(self, group):
+        if group is None:
+            return None
+        own = (getattr(group, "ext", None) or {}).get(self.app.key) or {}
+        return own.get("gyroid")
+
+    def _settings_infill(self):
+        return {"cell": round(self.cell.value(), 3), "wall": round(self.sheet.value(), 3),
+                "skin": round(self.skin.value(), 3)}
+
+    def _set_infill(self, value) -> None:
+        from .commands import SetInfillCommand
+        if getattr(self.scene, "edit_group", None) is not None:
+            self.status(t("Close the group you are editing first."), 5000)
+            return
+        groups, from_sel = B.candidate_groups(self.scene)
+        if not from_sel:
+            self.status(t("Select the parts first."), 5000)
+            return
+        vp = self.app.viewport
+        vp.history.execute(SetInfillCommand(groups, self.app.key, value))
+        vp.notify_scene_changed()
+        n = len(groups)
+        self.status(t("Gyroid infill on {n} parts", n=n) if value else
+                    t("{n} parts print solid again", n=n))
+        self._infill_summary()
+
+    def apply_infill(self) -> None:
+        params = self._settings_infill()
+        if lattice.check(params):
+            self.status(t("The wall is too thick for this cell: the gyroid would close up."), 6000)
+            return
+        self._set_infill(params)
+
+    def remove_infill(self) -> None:
+        self._set_infill(None)
+
+    def _infill(self, body, tris_mm, params, frame):
+        key = (id(body.group), self.scene.content_version, tuple(sorted(params.items())),
+               tuple(np.round(np.r_[frame[0], frame[1], frame[2], frame[3]], 9)))
+        hit = self._infill_cache.get(key)
+        if hit is None:
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            try:
+                hit = lattice.infill(tris_mm, params["cell"], params["wall"], params["skin"])
+            finally:
+                QApplication.restoreOverrideCursor()
+            if len(self._infill_cache) > 8:
+                self._infill_cache.clear()
+            self._infill_cache[key] = hit
+        return hit
+
+    def _infill_summary(self, lines=None) -> None:
+        bodies, _sel = B.collect(self.scene)
+        with_inf = [b for b in bodies if self.infill_of(b.group)]
+        if lines is None:
+            lines = []
+        if not with_inf:
+            self.infill_info.setText("\n".join(lines))
+            return
+        names = ", ".join(b.name for b in with_inf[:4]) + ("…" if len(with_inf) > 4 else "")
+        head = t("Parts with an infill: {names}", names=names)
+        self.infill_info.setText("<br>".join([head] + lines))
+
+    def preview_infill(self) -> None:
+        bodies, _sel = self._bodies()
+        if bodies is None:
+            return
+        targets = [b for b in bodies if self.infill_of(b.group)]
+        if not targets:
+            self.status(t("Give the selected parts a gyroid infill first."), 5000)
+            return
+        frame = self._print_frame(bodies)
+        self.infill_preview = []
+        lines = []
+        for b in targets:
+            params = self.infill_of(b.group)
+            tris = self._to_print(frame, b.tris).reshape(-1, 3, 3)
+            try:
+                man, info = self._infill(b, tris, params, frame)
+            except lattice.LatticeError as exc:
+                lines.append(f"{BAD_DOT} {b.name}: {t(str(exc))}")
+                continue
+            self.infill_preview.append((b, man, frame))
+            saved = 100.0 * (1.0 - info["volume"] / max(info["solid_volume"], 1e-12))
+            lines.append(f"{GREEN_DOT} {b.name}: " + t("{p} % less material, {n} triangles",
+                                                        p=num(saved, 0), n=f"{info['triangles']:,}".replace(",", " ")))
+            if params["wall"] < self.wall.value():
+                lines.append(f"{WARN_DOT} " + t("Gyroid wall under the minimum wall"))
+            if params["skin"] > 0:
+                lines.append(f"{GREY_DOT} " + t("Closed skin: resin or powder stays inside, add drain holes"))
+        self._infill_summary(lines)
+        self.preview_cv = self.scene.content_version
+        self._update_cut()
+
+    def _update_cut(self, *_a) -> None:
+        if not self.infill_preview:
+            return
+        polys = []
+        for _b, man, frame in self.infill_preview:
+            bb = man.bounding_box()
+            z = bb[2] + (bb[5] - bb[2]) * self.cut.value() / 100.0
+            for p in lattice.section(man, z):
+                pts = np.c_[p, np.full(len(p), z)]
+                polys.append(self._to_world(frame, pts))
+        self.layers["section"] = polys
+        self.shown = set(self.shown) | {"section"}
+        self.app.viewport.update()
+
+    def _paint_section(self, painter, polys) -> None:
+        if not polys:
+            return
+        path = QPainterPath()
+        path.setFillRule(Qt.OddEvenFill)
+        allp = np.concatenate(polys)
+        px, py, front = self.app.world_to_pixels(allp)
+        i = 0
+        for p in polys:
+            n = len(p)
+            if front[i:i + n].all():
+                path.moveTo(px[i], py[i])
+                for j in range(i + 1, i + n):
+                    path.lineTo(px[j], py[j])
+                path.closeSubpath()
+            i += n
+        fill = QColor(VIOLET)
+        fill.setAlpha(170)
+        painter.setPen(QPen(QColor(70, 30, 120), 1))
+        painter.setBrush(fill)
+        painter.drawPath(path)
 
     def _ask_path(self, title, filt, suffix):
         path, _f = QFileDialog.getSaveFileName(self.app.window, title,

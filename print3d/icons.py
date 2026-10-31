@@ -304,12 +304,38 @@ def _orient(p):
     p.drawRect(2, 20, 20, 2)
 
 
+def _gyroid(p):
+    from PySide6.QtGui import QPainterPath
+    from PySide6.QtCore import Qt
+    p.setPen(_pen(INK, 1.3))
+    p.setBrush(_brush(VIOLET, 40))
+    p.drawRoundedRect(2.5, 2.5, 19, 19, 3, 3)
+    p.setBrush(Qt.NoBrush)
+    p.setPen(_pen(VIOLET, 1.8))
+    for y0 in (7.0, 12.0, 17.0):
+        path = QPainterPath()
+        path.moveTo(3.5, y0)
+        path.cubicTo(7, y0 - 4, 9, y0 + 4, 12, y0)
+        path.cubicTo(15, y0 - 4, 17, y0 + 4, 20.5, y0)
+        p.drawPath(path)
+
+
+def _cut(p):
+    from PySide6.QtCore import Qt
+    _cube(p, 4, 6, 11, BLUE)
+    p.setPen(_pen(VIOLET, 1.4))
+    p.setBrush(_brush(VIOLET, 150))
+    p.drawPolygon(_poly((1.5, 14), (14.5, 14), (21.5, 9), (8.5, 9)))
+    p.setBrush(Qt.NoBrush)
+
+
 _DRAW = {
     "analyse": _analyse, "inspector": _inspector,
     "Overhangs": _overhangs, "Wall thickness": _wall,
     "Trapped cavities": _cavities, "Gaps between parts": _gaps,
     "Fits the build volume": _fits, "Lay flat on a face": _lay_flat,
     "Best orientation": _orient,
+    "Gyroid infill": _gyroid, "Preview a cut": _cut,
     "Split into bodies": _split, "Merge bodies": _merge,
     "Triangles → faces": _tri_faces,
     "Scale to size": _scale, "Hollow": _hollow, "Thicken": _thicken,

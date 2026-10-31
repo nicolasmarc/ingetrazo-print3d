@@ -36,6 +36,18 @@ face). *Appliquer* tourne les pièces. *Poser sur une face*, puis un clic sur
 une face, la pose sur le plateau. Chaque fois : **une seule étape
 d'annulation**, et le point le plus bas reste à sa hauteur.
 
+**Remplissage gyroïde** — pour alléger une pièce : elle garde une peau
+pleine d'épaisseur choisie et son intérieur devient un gyroïde (surface
+minimale triplement périodique, auto-portante, sans supports internes).
+Réglages en millimètres imprimés : taille de cellule, paroi du gyroïde,
+peau (0 = gyroïde seul). *Appliquer à la sélection* range ces réglages dans
+la pièce (enregistrés dans le .igz, une étape d'annulation) ; le gyroïde
+n'est construit qu'à l'export, le modèle reste léger. *Aperçu en coupe*
+le construit et en dessine une coupe à la hauteur choisie, avec la matière
+gagnée. Peau fermée : en résine ou en poudre, prévoir des trous
+d'évacuation. Le maillage et les opérations booléennes passent par
+manifold3d, la bibliothèque qu'IngeTrazo livre pour ses outils solides.
+
 **Exporter** — **3MF** (un objet par pièce, nommé comme le groupe, avec ses
 couleurs ; la couleur moyenne d'une texture) ou **STL binaire**, en
 millimètres, à l'échelle et dans l'orientation d'impression, posé à
@@ -87,6 +99,17 @@ that need the least support (support area and volume, print height; a
 part balanced on an edge comes after any part on a face). *Apply* turns
 them. *Lay flat on a face*, then a click on a face, puts that face on the
 bed. Each time: **one undo step**, and the lowest point keeps its height.
+
+**Gyroid infill** — to lighten a part: it keeps a solid skin of the chosen
+thickness and its inside becomes a gyroid (a triply periodic minimal
+surface, self-supporting, no inner supports). Settings in printed
+millimetres: cell size, gyroid wall, skin (0 = gyroid only). *Apply to
+the selection* stores them in the part (saved in the .igz, one undo
+step); the gyroid is built only at export, so the model stays light.
+*Preview a cut* builds it and draws a cut at the chosen height, with the
+material saved. A closed skin traps resin or powder: add drain holes.
+Meshing and booleans go through manifold3d, the library IngeTrazo ships
+for its Solid Tools.
 
 **Export** — **3MF** (one object per part, named after the group, with its
 colours; a texture gives its mean colour) or **binary STL**, in

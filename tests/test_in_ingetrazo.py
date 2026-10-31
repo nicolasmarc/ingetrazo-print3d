@@ -212,3 +212,54 @@ def test_click_a_face_to_lay_it_flat(panel, window):
     vp.history.undo()
     pts = np.array([v.position.toTuple() for v in console.mesh.vertices])
     assert np.ptp(pts[pts[:, 2] < 1e-6][:, 0]) == pytest.approx(10e-3, abs=1e-7)
+
+
+def test_gyroid_infill_apply_preview_export_undo(panel, tmp_path):
+    pytest.importorskip("manifold3d")
+    lib3mf = pytest.importorskip("lib3mf")
+    from print3d import mesh3d
+    sc = panel.scene
+    console = sc.groups[0]
+    vp = panel.app.viewport
+    panel.cell.setValue(6.0)
+    panel.sheet.setValue(0.8)
+    panel.skin.setValue(1.2)
+    panel.remove_infill()                      # nothing selected: refused
+    assert panel.infill_of(console) is None
+    sc.selection.add(console)
+    panel.apply_infill()
+    assert panel.infill_of(console) == {"cell": 6.0, "wall": 0.8, "skin": 1.2}
+    panel.preview_infill()
+    assert panel.layers.get("section")
+    assert "less material" in panel.infill_info.text()
+    sc.selection.clear()
+
+    from PySide6.QtWidgets import QFileDialog
+    out = tmp_path / "gyro.3mf"
+    orig = QFileDialog.getSaveFileName
+    QFileDialog.getSaveFileName = staticmethod(lambda *a, **k: (str(out), ""))
+    try:
+        panel.export_3mf()
+    finally:
+        QFileDialog.getSaveFileName = orig
+    model = lib3mf.get_wrapper().CreateModel()
+    model.QueryReader("3mf").ReadFromFile(str(out))
+    it = model.GetMeshObjects()
+    vols = {}
+    while it.MoveNext():
+        mo = it.GetCurrentMeshObject()
+        v = np.array([x.Coordinates[:] for x in mo.GetVertices()])
+        tri = np.array([x.Indices[:] for x in mo.GetTriangleIndices()])
+        vols[mo.GetName()] = mesh3d.signed_volume(v[tri])
+    solid = (50 * 8 + 10 * 30) * 15.0                # the T, mm³
+    assert 0.25 * solid < vols["Console"] < 0.7 * solid
+    assert vols["Ailette"] == pytest.approx(30 * 20 * 0.5, rel=1e-3)   # untouched
+
+    vp.history.undo()                           # the infill goes
+    vp.notify_scene_changed()                   # what the Undo command does
+    assert panel.infill_of(console) is None
+    assert not panel.layers.get("section")      # the model changed: cut dropped
+    vp.history.redo()
+    assert panel.infill_of(console) is not None
+    vp.history.undo()
+    panel._infill_cache.clear()

@@ -33,3 +33,36 @@ class ReorientCommand(Command):
     def undo(self, scene) -> None:
         for s in reversed(self.steps):
             s.undo(scene)
+
+
+class SetInfillCommand(Command):
+    """Give ``groups`` a gyroid infill (``value``: the settings) or take
+    it away (``None``). Kept in ``group.ext[key]``: saved in the .igz and
+    carried by copies."""
+
+    def __init__(self, groups, key: str, value) -> None:
+        self.groups = list(groups)
+        self.key = key
+        self.value = dict(value) if value else None
+        self.before = [getattr(g, "ext", None) for g in self.groups]
+        self.before = [dict(e) if e else None for e in self.before]
+
+    def do(self, scene) -> None:
+        for g in self.groups:
+            ext = dict(getattr(g, "ext", None) or {})
+            own = dict(ext.get(self.key) or {})
+            if self.value is None:
+                own.pop("gyroid", None)
+            else:
+                own["gyroid"] = dict(self.value)
+            if own:
+                ext[self.key] = own
+            else:
+                ext.pop(self.key, None)
+            g.ext = ext or None
+        scene.version += 1
+
+    def undo(self, scene) -> None:
+        for g, ext in zip(self.groups, self.before):
+            g.ext = dict(ext) if ext else None
+        scene.version += 1

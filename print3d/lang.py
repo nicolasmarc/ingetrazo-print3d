@@ -116,6 +116,62 @@ FR = {
         "Cliquez sur la face à poser sur le plateau (outil Sélection).",
     "No part under the cursor.": "Aucune pièce sous le curseur.",
     "Laid flat on that face": "Posée sur cette face",
+    'Gyroid infill':
+        'Remplissage gyroïde',
+    'Lightens a part: it keeps a skin, its inside becomes a gyroid. Made at export; the model stays light.':
+        "Allège une pièce : elle garde une peau, son intérieur devient un gyroïde. Construit à l'export : le modèle reste léger.",
+    'Cell size':
+        'Taille de cellule',
+    'Size of one gyroid cell, printed.':
+        "Taille d'une cellule du gyroïde, à l'impression.",
+    'Gyroid wall':
+        'Paroi du gyroïde',
+    "Thickness of the gyroid's wall, printed.":
+        "Épaisseur de la paroi du gyroïde, à l'impression.",
+    'Skin':
+        'Peau',
+    'Solid outer wall kept around the gyroid; 0 = gyroid only.':
+        'Paroi extérieure pleine gardée autour du gyroïde ; 0 = gyroïde seul.',
+    'Apply to the selection':
+        'Appliquer à la sélection',
+    'The selected parts get a gyroid infill with these settings (one undo step).':
+        "Les pièces sélectionnées reçoivent un remplissage gyroïde avec ces réglages (une étape d'annulation).",
+    'Remove':
+        'Retirer',
+    'The selected parts print solid again.':
+        "Les pièces sélectionnées s'impriment de nouveau pleines.",
+    'Preview a cut':
+        'Aperçu en coupe',
+    'Builds the infill of the selected parts and draws a cut through it.':
+        'Construit le remplissage des pièces sélectionnées et en dessine une coupe.',
+    'Height of the cut':
+        'Hauteur de la coupe',
+    'Select the parts first.':
+        "Sélectionnez d'abord les pièces.",
+    'Gyroid infill on {n} parts':
+        'Remplissage gyroïde sur {n} pièces',
+    '{n} parts print solid again':
+        "{n} pièces s'impriment de nouveau pleines",
+    'The wall is too thick for this cell: the gyroid would close up.':
+        'Paroi trop épaisse pour cette cellule : le gyroïde se refermerait.',
+    'Parts with an infill: {names}':
+        'Pièces avec remplissage : {names}',
+    'Give the selected parts a gyroid infill first.':
+        "Donnez d'abord un remplissage gyroïde aux pièces sélectionnées.",
+    '{p} % less material, {n} triangles':
+        '{p} % de matière en moins, {n} triangles',
+    'Gyroid wall under the minimum wall':
+        'Paroi du gyroïde sous la paroi minimale',
+    'Closed skin: resin or powder stays inside, add drain holes':
+        "Peau fermée : la résine ou la poudre reste dedans, prévoir des trous d'évacuation",
+    '{p}: infill left out ({why})':
+        '{p} : remplissage non fait ({why})',
+    'no manifold3d':
+        'manifold3d absent',
+    'not watertight':
+        'pièce non étanche',
+    'too thin':
+        'pièce plus fine que sa peau',
 }
 
 ES = {
@@ -229,6 +285,62 @@ ES = {
         "Haz clic en la cara que se apoyará en la cama (herramienta Seleccionar).",
     "No part under the cursor.": "Ninguna pieza bajo el cursor.",
     "Laid flat on that face": "Apoyada sobre esa cara",
+    'Gyroid infill':
+        'Relleno giroide',
+    'Lightens a part: it keeps a skin, its inside becomes a gyroid. Made at export; the model stays light.':
+        'Aligera una pieza: conserva una piel y su interior se vuelve un giroide. Se construye al exportar: el modelo sigue ligero.',
+    'Cell size':
+        'Tamaño de celda',
+    'Size of one gyroid cell, printed.':
+        'Tamaño de una celda del giroide, impreso.',
+    'Gyroid wall':
+        'Pared del giroide',
+    "Thickness of the gyroid's wall, printed.":
+        'Espesor de la pared del giroide, impreso.',
+    'Skin':
+        'Piel',
+    'Solid outer wall kept around the gyroid; 0 = gyroid only.':
+        'Pared exterior maciza que rodea el giroide; 0 = solo giroide.',
+    'Apply to the selection':
+        'Aplicar a la selección',
+    'The selected parts get a gyroid infill with these settings (one undo step).':
+        'Las piezas seleccionadas reciben un relleno giroide con estos ajustes (un paso de deshacer).',
+    'Remove':
+        'Quitar',
+    'The selected parts print solid again.':
+        'Las piezas seleccionadas vuelven a imprimirse macizas.',
+    'Preview a cut':
+        'Vista en corte',
+    'Builds the infill of the selected parts and draws a cut through it.':
+        'Construye el relleno de las piezas seleccionadas y dibuja un corte.',
+    'Height of the cut':
+        'Altura del corte',
+    'Select the parts first.':
+        'Primero selecciona las piezas.',
+    'Gyroid infill on {n} parts':
+        'Relleno giroide en {n} piezas',
+    '{n} parts print solid again':
+        '{n} piezas vuelven a imprimirse macizas',
+    'The wall is too thick for this cell: the gyroid would close up.':
+        'Pared demasiado gruesa para esta celda: el giroide se cerraría.',
+    'Parts with an infill: {names}':
+        'Piezas con relleno: {names}',
+    'Give the selected parts a gyroid infill first.':
+        'Primero da un relleno giroide a las piezas seleccionadas.',
+    '{p} % less material, {n} triangles':
+        '{p} % menos material, {n} triángulos',
+    'Gyroid wall under the minimum wall':
+        'Pared del giroide bajo la pared mínima',
+    'Closed skin: resin or powder stays inside, add drain holes':
+        'Piel cerrada: la resina o el polvo quedan dentro, prevé orificios de drenaje',
+    '{p}: infill left out ({why})':
+        '{p}: relleno no aplicado ({why})',
+    'no manifold3d':
+        'falta manifold3d',
+    'not watertight':
+        'pieza no hermética',
+    'too thin':
+        'pieza más delgada que su piel',
 }
 
 _ALL = {"fr": FR, "es": ES}
