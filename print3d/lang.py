@@ -80,19 +80,19 @@ FR = {
     "(red)": "(en rouge)",
     "supports needed": "supports nécessaires",
     "No overhang: no support needed": "Aucun surplomb : pas de supports",
-    "Walls under {w} mm": "Parois sous {w} mm",
+    "Walls under {w}": "Parois sous {w}",
     "triangles": "triangles",
     "(orange)": "(en orange)",
-    "thinnest {w} mm": "la plus fine {w} mm",
-    "No wall under {w} mm": "Aucune paroi sous {w} mm",
+    "thinnest {w}": "la plus fine {w}",
+    "No wall under {w}": "Aucune paroi sous {w}",
     "(violet)": "(en violet)",
     "add a drain hole for resin or powder": "prévoir un trou d'évacuation en résine ou en poudre",
     "No trapped cavity": "Aucune cavité fermée",
     "Gaps: a single part": "Jeux : une seule pièce",
-    "Gaps under {g} mm": "Jeux sous {g} mm",
+    "Gaps under {g}": "Jeux sous {g}",
     "(blue)": "(en bleu)",
-    "smallest {g} mm": "le plus petit {g} mm",
-    "No gap under {g} mm": "Aucun jeu sous {g} mm",
+    "smallest {g}": "le plus petit {g}",
+    "No gap under {g}": "Aucun jeu sous {g}",
     "{n} contacts between parts: they print as one piece":
         "{n} contacts entre pièces : elles s'impriment d'un seul tenant",
     "Size at {s}": "Taille au {s}",
@@ -104,8 +104,8 @@ FR = {
     "{n} parts turned as one block: select a part to orient it alone":
         "{n} pièces tournées d'un bloc : sélectionnez une pièce pour l'orienter seule",
     "top": "haut",
-    "supports about {v} cm³": "supports env. {v} cm³",
-    "height {h} mm": "hauteur {h} mm",
+    "supports about {v}": "supports env. {v}",
+    "height {h}": "hauteur {h}",
     "Apply": "Appliquer",
     "Loose geometry": "Géométrie libre",
     "Loose geometry cannot turn: make it a group first.":
@@ -222,10 +222,10 @@ FR = {
         'Impossible de lire {f} : {e}',
     '{n} triangles imported':
         '{n} triangles importés',
-    '{k} edges under {d} mm merged':
-        '{k} arêtes de moins de {d} mm fusionnées',
-    'At {s} the parts print {d} mm long: check the print scale. Wall and gap checks skipped.':
-        "Au {s}, les pièces font {d} mm imprimées : vérifiez l'échelle d'impression. Contrôles de parois et de jeux non faits.",
+    '{k} edges under {d} merged':
+        '{k} arêtes de moins de {d} fusionnées',
+    'At {s} the parts print {d} long: check the print scale. Wall and gap checks skipped.':
+        "Au {s}, les pièces font {d} imprimées : vérifiez l'échelle d'impression. Contrôles de parois et de jeux non faits.",
     'Skin…':
         'Peau…',
     'Gyroid…':
@@ -315,19 +315,19 @@ ES = {
     "(red)": "(rojo)",
     "supports needed": "necesita soportes",
     "No overhang: no support needed": "Sin voladizos: no necesita soportes",
-    "Walls under {w} mm": "Paredes bajo {w} mm",
+    "Walls under {w}": "Paredes bajo {w}",
     "triangles": "triángulos",
     "(orange)": "(naranja)",
-    "thinnest {w} mm": "la más delgada {w} mm",
-    "No wall under {w} mm": "Ninguna pared bajo {w} mm",
+    "thinnest {w}": "la más delgada {w}",
+    "No wall under {w}": "Ninguna pared bajo {w}",
     "(violet)": "(violeta)",
     "add a drain hole for resin or powder": "prevé un orificio de drenaje para resina o polvo",
     "No trapped cavity": "Ninguna cavidad cerrada",
     "Gaps: a single part": "Holguras: una sola pieza",
-    "Gaps under {g} mm": "Holguras bajo {g} mm",
+    "Gaps under {g}": "Holguras bajo {g}",
     "(blue)": "(azul)",
-    "smallest {g} mm": "la menor {g} mm",
-    "No gap under {g} mm": "Ninguna holgura bajo {g} mm",
+    "smallest {g}": "la menor {g}",
+    "No gap under {g}": "Ninguna holgura bajo {g}",
     "{n} contacts between parts: they print as one piece":
         "{n} contactos entre piezas: se imprimen en una sola pieza",
     "Size at {s}": "Tamaño a {s}",
@@ -339,8 +339,8 @@ ES = {
     "{n} parts turned as one block: select a part to orient it alone":
         "{n} piezas giradas como un bloque: selecciona una pieza para orientarla sola",
     "top": "arriba",
-    "supports about {v} cm³": "soportes aprox. {v} cm³",
-    "height {h} mm": "altura {h} mm",
+    "supports about {v}": "soportes aprox. {v}",
+    "height {h}": "altura {h}",
     "Apply": "Aplicar",
     "Loose geometry": "Geometría suelta",
     "Loose geometry cannot turn: make it a group first.":
@@ -457,10 +457,10 @@ ES = {
         'No se pudo leer {f}: {e}',
     '{n} triangles imported':
         '{n} triángulos importados',
-    '{k} edges under {d} mm merged':
-        '{k} aristas de menos de {d} mm fusionadas',
-    'At {s} the parts print {d} mm long: check the print scale. Wall and gap checks skipped.':
-        'A {s} las piezas miden {d} mm impresas: revisa la escala de impresión. No se comprueban paredes ni holguras.',
+    '{k} edges under {d} merged':
+        '{k} aristas de menos de {d} fusionadas',
+    'At {s} the parts print {d} long: check the print scale. Wall and gap checks skipped.':
+        'A {s} las piezas miden {d} impresas: revisa la escala de impresión. No se comprueban paredes ni holguras.',
     'Skin…':
         'Piel…',
     'Gyroid…':

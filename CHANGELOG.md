@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.5 — 2026-11-01
+
+- The panel follows the document's units system: a metric document reads
+  printed sizes in millimetres (volumes in cm³), an imperial one in inches
+  (volumes in in³) — settings, printer beds, results, the gap labels in
+  the view. Values are kept in millimetres underneath, so switching units
+  changes nothing but what is shown.
+
 ## 0.4.4 — 2026-10-31
 
 - Gyroid infill behind a progress window (skin, gyroid with a bar,

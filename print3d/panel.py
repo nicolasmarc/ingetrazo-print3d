@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget, QSlider,
                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from . import bodies as B
-from . import export, icons, lattice, mesh3d
+from . import export, icons, lattice, mesh3d, punits
 from .lang import N_, lang, num, t
 
 RED = QColor(220, 40, 40)
@@ -78,7 +78,9 @@ class Panel(QWidget):
         self.holes_cv = None
         self._settings = QSettings()
         self.sections: dict = {}
+        self._len_spins: list = []
         self._build()
+        self._sync_units()
         app.add_overlay(self._paint)
         app.on_document_changed(self._document_changed)
         app.add_pickable(pick=self._pick, on_select=None, delete=None)
@@ -135,6 +137,60 @@ class Panel(QWidget):
         if sec is not None:
             sec.head.setChecked(True)
 
+    def _len_spin(self, key, default_mm, lo_mm, hi_mm, decimals_mm=1, step_mm=0.1):
+        """A length spin box: stored in millimetres (QSettings), shown in the
+        document's print unit (mm, or inches for an imperial document)."""
+        w = QDoubleSpinBox()
+        loc = {"es": QLocale.Spanish, "fr": QLocale.French}.get(lang())
+        if loc is not None:
+            w.setLocale(QLocale(loc))
+        w._p3 = (key, lo_mm, hi_mm, decimals_mm, step_mm)
+        w._mm = float(self._settings.value(_KEY + key, default_mm))
+
+        def mm():
+            return w._mm
+
+        def set_mm(v):
+            w._mm = float(v)
+            w.blockSignals(True)
+            w.setValue(w._mm / punits.factor())
+            w.blockSignals(False)
+            self._settings.setValue(_KEY + key, w._mm)
+
+        def changed(v):
+            w._mm = float(v) * punits.factor()
+            self._settings.setValue(_KEY + key, w._mm)
+        w.mm, w.set_mm = mm, set_mm
+        w.valueChanged.connect(changed)
+        self._len_spins.append(w)
+        self._unit_dress(w)
+        return w
+
+    def _unit_dress(self, w) -> None:
+        _key, lo, hi, dec, step = w._p3
+        f = punits.factor()
+        w.blockSignals(True)
+        w.setDecimals(dec if f == 1.0 else (2 if dec == 0 else (3 if hi >= 50 else 4)))
+        w.setRange(lo / f, hi / f)
+        w.setSingleStep(step / f if f == 1.0 else max(round(step / f, 3), 0.001))
+        w.setSuffix(punits.suffix())
+        w.setValue(w._mm / f)
+        w.blockSignals(False)
+
+    def _sync_units(self) -> None:
+        u = punits.unit()
+        if u == getattr(self, "_shown_unit", None):
+            return
+        self._shown_unit = u
+        for w in self._len_spins:
+            self._unit_dress(w)
+        i = self.bed.currentIndex()
+        self.bed.blockSignals(True)
+        for k, xyz in enumerate(BEDS):
+            self.bed.setItemText(k, punits.size(xyz))
+        self.bed.blockSignals(False)
+        self.bed.setCurrentIndex(i)
+
     def _spin(self, key, default, lo, hi, suffix, decimals=1, step=0.1):
         w = QDoubleSpinBox()
         loc = {"es": QLocale.Spanish, "fr": QLocale.French}.get(lang())
@@ -176,12 +232,12 @@ class Panel(QWidget):
         self.scale.setToolTip(t("Printed size : model size, e.g. 1:50 for a building model."))
         self.bed = QComboBox()
         for x, y, z in BEDS:
-            self.bed.addItem(f"{x} × {y} × {z} mm")
+            self.bed.addItem(punits.size((x, y, z)))
         self.bed.addItem(t("Custom…"))
         bed_row = self.bed_row = QWidget()
         bl = QHBoxLayout(bed_row)
         bl.setContentsMargins(0, 0, 0, 0)
-        self.bed_xyz = [self._spin(f"bed_{a}", d, 10, 2000, " mm", 0, 10)
+        self.bed_xyz = [self._len_spin(f"bed_{a}", d, 10, 2000, 0, 10)
                         for a, d in zip("xyz", (220, 220, 250))]
         for w in self.bed_xyz:
             bl.addWidget(w)
@@ -190,9 +246,9 @@ class Panel(QWidget):
         self._bed_changed(self.bed.currentIndex())
         self.angle = self._spin("angle", 45, 0, 89, " °", 0, 1)
         self.angle.setToolTip(t("Faces leaning further than this from the vertical need support."))
-        self.wall = self._spin("wall", 0.8, 0.1, 20, " mm", 1, 0.1)
+        self.wall = self._len_spin("wall", 0.8, 0.1, 20, 1, 0.1)
         self.wall.setToolTip(t("Thinner walls may not print: about two nozzle widths in FDM."))
-        self.gap = self._spin("gap", 0.3, 0.05, 10, " mm", 2, 0.05)
+        self.gap = self._len_spin("gap", 0.3, 0.05, 10, 2, 0.05)
         self.gap.setToolTip(t("Parts closer than this may fuse together when printed."))
         form.addRow(t("Build direction"), self.direction)
         form.addRow(t("Print scale"), self.scale)
@@ -294,11 +350,11 @@ class Panel(QWidget):
         intro.setWordWrap(True)
         intro.setStyleSheet("color: gray;")
         form.addRow(intro)
-        self.cell = self._spin("cell", 6.0, 1.0, 200.0, " mm", 1, 0.5)
+        self.cell = self._len_spin("cell", 6.0, 1.0, 200.0, 1, 0.5)
         self.cell.setToolTip(t("Size of one gyroid cell, printed."))
-        self.sheet = self._spin("sheet", 0.8, 0.2, 20.0, " mm", 2, 0.1)
+        self.sheet = self._len_spin("sheet", 0.8, 0.2, 20.0, 2, 0.1)
         self.sheet.setToolTip(t("Thickness of the gyroid's wall, printed."))
-        self.skin = self._spin("skin", 1.2, 0.0, 50.0, " mm", 1, 0.2)
+        self.skin = self._len_spin("skin", 1.2, 0.0, 50.0, 1, 0.2)
         self.skin.setToolTip(t("Solid outer wall kept around the gyroid; 0 = gyroid only."))
         form.addRow(t("Cell size"), self.cell)
         form.addRow(t("Gyroid wall"), self.sheet)
@@ -377,9 +433,7 @@ class Panel(QWidget):
         custom = i >= len(BEDS)
         for k, w in enumerate(self.bed_xyz):
             if not custom:
-                w.blockSignals(True)
-                w.setValue(BEDS[i][k])
-                w.blockSignals(False)
+                w.set_mm(BEDS[i][k])
             w.setEnabled(custom)
         form = getattr(self, "setup_form", None)
         if form is not None and hasattr(form, "setRowVisible"):
@@ -401,7 +455,7 @@ class Panel(QWidget):
         return mm / self.k()
 
     def bed_mm(self):
-        return [w.value() for w in self.bed_xyz]
+        return [w.mm() for w in self.bed_xyz]
 
     # ---- status -----------------------------------------------------------------
     def status(self, text: str, ms: int = 4000) -> None:
@@ -473,8 +527,8 @@ class Panel(QWidget):
 
         printed = float(mesh3d.extents(allt, up).max() * k)
         if printed < 2.0 or printed > 20000.0:
-            lines.append(f"{BAD_DOT} " + t("At {s} the parts print {d} mm long: check the print scale. Wall and gap checks skipped.",
-                                            s=self.scale.currentText(), d=num(printed, 2)))
+            lines.append(f"{BAD_DOT} " + t("At {s} the parts print {d} long: check the print scale. Wall and gap checks skipped.",
+                                            s=self.scale.currentText(), d=punits.length(printed, 2)))
             what = [w for w in what if w not in ("thickness", "gaps")]
 
         if "watertight" in what:
@@ -500,7 +554,7 @@ class Panel(QWidget):
                 lines.append(f"{GREEN_DOT} {t('No overhang: no support needed')}")
 
         if "thickness" in what:
-            mw = self.model_len(self.wall.value())
+            mw = self.model_len(self.wall.mm())
             thin_t, thinnest = [], math.inf
             for b in bodies:
                 th = mesh3d.wall_thickness(b.tris, mw, tol=TOUCH_M)
@@ -511,12 +565,12 @@ class Panel(QWidget):
             if thin_t:
                 tt = np.concatenate(thin_t)
                 self.layers["thickness"] = (tt, ORANGE)
-                lines.append(f"{BAD_DOT} {t('Walls under {w} mm', w=num(self.wall.value()))}: "
+                lines.append(f"{BAD_DOT} {t('Walls under {w}', w=punits.length(self.wall.mm()))}: "
                              f"<b>{len(tt)}</b> {t('triangles')} "
                              f"<span style='color:#e07b22'>{t('(orange)')}</span>, "
-                             f"{t('thinnest {w} mm', w=num(thinnest * k, 2))}")
+                             f"{t('thinnest {w}', w=punits.length(thinnest * k, 2))}")
             else:
-                lines.append(f"{GREEN_DOT} {t('No wall under {w} mm', w=num(self.wall.value()))}")
+                lines.append(f"{GREEN_DOT} {t('No wall under {w}', w=punits.length(self.wall.mm()))}")
 
         if "cavities" in what:
             cav = []
@@ -527,7 +581,7 @@ class Panel(QWidget):
                 vol = sum(c["volume"] for c in cav) * k ** 3 / 1000.0
                 lines.append(f"{WARN_DOT} {t('Trapped cavities')}: <b>{len(cav)}</b> "
                              f"<span style='color:#7b52c7'>{t('(violet)')}</span>, "
-                             f"{num(vol, 2)} cm³ — {t('add a drain hole for resin or powder')}")
+                             f"{punits.volume(vol)} — {t('add a drain hole for resin or powder')}")
             else:
                 lines.append(f"{GREEN_DOT} {t('No trapped cavity')}")
 
@@ -535,18 +589,18 @@ class Panel(QWidget):
             if len(bodies) < 2:
                 lines.append(f"{GREY_DOT} {t('Gaps: a single part')}")
             else:
-                gl = mesh3d.gaps([b.tris for b in bodies], self.model_len(self.gap.value()))
+                gl = mesh3d.gaps([b.tris for b in bodies], self.model_len(self.gap.mm()))
                 close = [g for g in gl if g["distance"] * k > CONTACT_MM]
                 touch = [g for g in gl if g["distance"] * k <= CONTACT_MM]
                 self.layers["gaps"] = gl
                 if close:
                     worst = close[0]["distance"] * k
-                    lines.append(f"{WARN_DOT} {t('Gaps under {g} mm', g=num(self.gap.value(), 2))}: "
+                    lines.append(f"{WARN_DOT} {t('Gaps under {g}', g=punits.length(self.gap.mm(), 2))}: "
                                  f"<b>{len(close)}</b> "
                                  f"<span style='color:#1e6ee6'>{t('(blue)')}</span>, "
-                                 f"{t('smallest {g} mm', g=num(worst, 2))}")
+                                 f"{t('smallest {g}', g=punits.length(worst, 2))}")
                 else:
-                    lines.append(f"{GREEN_DOT} {t('No gap under {g} mm', g=num(self.gap.value(), 2))}")
+                    lines.append(f"{GREEN_DOT} {t('No gap under {g}', g=punits.length(self.gap.mm(), 2))}")
                 if touch:
                     lines.append(f"{GREY_DOT} {t('{n} contacts between parts: they print as one piece', n=len(touch))}")
 
@@ -554,7 +608,7 @@ class Panel(QWidget):
             ext = mesh3d.extents(allt, up) * k
             fit = mesh3d.fits(ext, self.bed_mm())
             self.layers["fits"] = True
-            size = f"{ext[0]:.0f} × {ext[1]:.0f} × {ext[2]:.0f} mm"
+            size = punits.size(ext)
             if fit["fits"]:
                 note = t("fits the bed, turned a quarter") if fit["turned"] else t("fits the bed")
                 dot = GREEN_DOT
@@ -593,7 +647,7 @@ class Panel(QWidget):
             u = o["up"]
             vol = o["support_volume"] * k ** 3 / 1000.0
             text = (f"<b>{i + 1}.</b> {t('top')} {dir_label(u)}<br>"
-                    f"{t('supports about {v} cm³', v=num(vol, 1))} · {t('height {h} mm', h=num(o['height'] * k, 0))}")
+                    f"{t('supports about {v}', v=punits.volume(vol))} · {t('height {h}', h=punits.length(o['height'] * k, 0))}")
             lab = QLabel(text)
             lab.setTextFormat(Qt.RichText)
             h.addWidget(lab, 1)
@@ -717,6 +771,7 @@ class Panel(QWidget):
 
     def _document_changed(self) -> None:
         self._sync_scale()
+        self._sync_units()
         cv = self.scene.content_version
         if "holes" in self.layers and cv != self.holes_cv:
             self.layers.pop("holes", None)
@@ -871,7 +926,7 @@ class Panel(QWidget):
             for q in (pa, pb):
                 painter.drawEllipse(q, 5.0, 5.0)
             painter.setPen(QPen(BLUE))
-            painter.drawText(pb + QPointF(8, -8), f"{num(g['distance'] * k, 2)} mm")
+            painter.drawText(pb + QPointF(8, -8), punits.length(g['distance'] * k, 2))
 
     def _paint_bed(self, painter) -> None:
         """The printer's volume at model scale, standing on the bed level
@@ -996,8 +1051,8 @@ class Panel(QWidget):
             zoom()
         msg = t("{n} triangles imported", n=rep["triangles_out"])
         if rep["collapsed"]:
-            msg += " — " + t("{k} edges under {d} mm merged", k=rep["collapsed"],
-                             d=num(2 * WELD * 1000, 1))
+            msg += " — " + t("{k} edges under {d} merged", k=rep["collapsed"],
+                             d=punits.length(2 * WELD * 1000, 1))
         self.status(msg, 8000)
         self.hole_info.setText(f"{GREY_DOT} " + msg)
 
@@ -1158,8 +1213,8 @@ class Panel(QWidget):
         return own.get("gyroid")
 
     def _settings_infill(self):
-        return {"cell": round(self.cell.value(), 3), "wall": round(self.sheet.value(), 3),
-                "skin": round(self.skin.value(), 3)}
+        return {"cell": round(self.cell.mm(), 3), "wall": round(self.sheet.mm(), 3),
+                "skin": round(self.skin.mm(), 3)}
 
     def _set_infill(self, value) -> None:
         from .commands import SetInfillCommand
@@ -1276,7 +1331,7 @@ class Panel(QWidget):
             saved = 100.0 * (1.0 - info["volume"] / max(info["solid_volume"], 1e-12))
             lines.append(f"{GREEN_DOT} {b.name}: " + t("{p} % less material, {n} triangles",
                                                         p=num(saved, 0), n=f"{info['triangles']:,}".replace(",", " ")))
-            if params["wall"] < self.wall.value():
+            if params["wall"] < self.wall.mm():
                 lines.append(f"{WARN_DOT} " + t("Gyroid wall under the minimum wall"))
             if params["skin"] > 0:
                 lines.append(f"{GREY_DOT} " + t("Closed skin: resin or powder stays inside, add drain holes"))

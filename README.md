@@ -77,6 +77,8 @@ dossier `print3d` dans `%APPDATA%\ingetrazo\plugins\` (Windows) ou
 `~/.local/share/ingetrazo/plugins/` (Linux), puis redémarrer IngeTrazo.
 
 Panneau en français, anglais et espagnol, selon la langue d'IngeTrazo.
+Les longueurs suivent le système d'unités du document : millimètres pour
+un document métrique, pouces pour un document impérial.
 
 ---
 
@@ -141,7 +143,9 @@ stay the slicer's job: it knows the nozzle, the material and the printer.
 
 Methods: triangle normals and areas, Möller–Trumbore rays, ray parity for
 inside a solid, closest point on a triangle, signed volumes; a uniform
-grid keeps the searches local. NumPy only. Faces hidden by the model are
+grid keeps the searches local. NumPy only. Printed lengths follow the
+document's units system: millimetres for a metric document, inches for an
+imperial one. Faces hidden by the model are
 left out using the depth IngeTrazo's view already rendered.
 
 ## Development

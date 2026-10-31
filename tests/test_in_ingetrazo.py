@@ -423,3 +423,28 @@ def test_a_sliver_does_not_open_a_closed_part(panel):
     body = B.collect(sc)[0][0]
     assert B.watertight(body)
     lattice.to_manifold(body.tris * 1000)               # no LatticeError
+
+
+def test_the_panel_follows_the_document_units(panel):
+    """An imperial document reads printed sizes in inches; settings stay
+    in millimetres underneath."""
+    from core import units
+    sc = panel.scene
+    before = dict(units.model_units_of(sc))
+    try:
+        units.apply_units(sc, dict(units.PROFILES["imperial"]))
+        panel.app.viewport.notify_scene_changed()
+        assert panel.wall.suffix().strip() == "in"
+        assert panel.wall.value() == pytest.approx(0.8 / 25.4, abs=1e-4)
+        assert panel.wall.mm() == pytest.approx(0.8)
+        assert "in" in panel.bed.itemText(1) and "8.66" in panel.bed.itemText(1)
+        panel.run(["thickness", "fits"])
+        s = _text(panel)
+        assert "Walls under 0.031 in" in s and "3.54 × 2.17 × 1.50 in" in s
+        panel.wall.setValue(0.05)                    # typed in inches
+        assert panel.wall.mm() == pytest.approx(1.27)
+        panel.wall.set_mm(0.8)
+    finally:
+        units.apply_units(sc, before)
+        panel.app.viewport.notify_scene_changed()
+    assert panel.wall.suffix().strip() == "mm" and panel.wall.value() == pytest.approx(0.8)
