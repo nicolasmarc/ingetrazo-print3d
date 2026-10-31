@@ -869,10 +869,10 @@ class Panel(QWidget):
                     main = b.colours[np.argmax(mesh3d.normals_areas(b.tris)[1])]
                     o["colours"] = np.tile(main, (len(o["tris"]), 1))
                 except lattice.LatticeError as exc:
-                    skipped.append((o["name"], str(exc)))
+                    skipped.append((o["name"], t(exc.key, **exc.kw)))
             out.append(o)
         for name, why in skipped:
-            self.status(t("{p}: infill left out ({why})", p=name, why=t(why)), 8000)
+            self.status(t("{p}: infill left out ({why})", p=name, why=why), 8000)
         return out
 
     # ---- gyroid infill ---------------------------------------------------------------
@@ -957,7 +957,7 @@ class Panel(QWidget):
             try:
                 man, info = self._infill(b, tris, params, frame)
             except lattice.LatticeError as exc:
-                lines.append(f"{BAD_DOT} {b.name}: {t(str(exc))}")
+                lines.append(f"{BAD_DOT} {b.name}: {t(exc.key, **exc.kw)}")
                 continue
             self.infill_preview.append((b, man, frame))
             saved = 100.0 * (1.0 - info["volume"] / max(info["solid_volume"], 1e-12))

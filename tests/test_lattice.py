@@ -76,3 +76,23 @@ def test_settings_check():
 def test_non_convex_part():
     man, info = lattice.infill(tee(), cell=6.0, wall=0.8, skin=1.2)
     assert 0.25 < info["volume"] / info["solid_volume"] < 0.75
+
+
+def test_triangle_estimate_is_close():
+    import manifold3d as m3
+    for cell, res in ((6.0, 1.0), (10.0, 0.8)):
+        sheet = m3.Manifold.level_set(lattice.gyroid_field(cell, 0.8),
+                                      [0, 0, 0, 40, 40, 40], res)
+        est = lattice.TRI_FACTOR * 40 ** 3 / (cell * res * res)
+        assert 0.45 < sheet.num_tri() / est < 1.2   # the estimate leans high
+
+
+def test_a_big_part_gets_a_coarser_mesh_then_is_refused():
+    res_small, _ = lattice.plan((40, 40, 40), cell=6.0, wall=0.8)
+    # a 9 cm organic part filling half its box (a figurine), 8 mm cells
+    res_small, _ = lattice.plan((40, 40, 40), cell=8.0, wall=0.8)
+    res_big, est = lattice.plan((90, 80, 70), cell=8.0, wall=0.8, volume=0.5 * 90 * 80 * 70)
+    assert res_big > res_small and est <= lattice.MAX_TRIANGLES
+    with pytest.raises(lattice.LatticeError) as e:
+        lattice.plan((400, 300, 300), cell=4.0, wall=0.8)
+    assert "million triangles" in str(e.value)

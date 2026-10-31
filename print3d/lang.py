@@ -172,6 +172,8 @@ FR = {
         'pièce non étanche',
     'too thin':
         'pièce plus fine que sa peau',
+    'too big for this cell: about {n} million triangles, take a larger cell':
+        'trop grande pour cette cellule : environ {n} millions de triangles, prendre une cellule plus grande',
 }
 
 ES = {
@@ -341,6 +343,8 @@ ES = {
         'pieza no hermética',
     'too thin':
         'pieza más delgada que su piel',
+    'too big for this cell: about {n} million triangles, take a larger cell':
+        'demasiado grande para esta celda: unos {n} millones de triángulos, usa una celda mayor',
 }
 
 _ALL = {"fr": FR, "es": ES}

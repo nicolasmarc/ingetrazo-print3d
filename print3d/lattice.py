@@ -29,7 +29,46 @@ T_MAX = 1.1
 
 
 class LatticeError(Exception):
-    """The part cannot take an infill (open, too thin...)."""
+    """The part cannot take an infill (open, too thin, too big...).
+    ``key`` is the English text, ``kw`` its values (the panel translates)."""
+
+    def __init__(self, key: str, **kw) -> None:
+        super().__init__(key.format(**kw) if kw else key)
+        self.key = key
+        self.kw = kw
+
+
+#: Triangles of a gyroid sheet ≈ TRI_FACTOR · volume / (cell · res²),
+#: measured on manifold3d's mesher (see the tests).
+TRI_FACTOR = 40.0
+#: Beyond this the file, the slicer and IngeTrazo's memory suffer.
+MAX_TRIANGLES = 2_000_000
+#: Points the mesher asks the gyroid for (one Python call each, ~5 µs).
+MAX_POINTS = 3_000_000
+
+
+def plan(size, cell: float, wall: float, volume: float | None = None):
+    """``(resolution, estimated triangles)`` for a part of ``volume``
+    (mm³) in a box of ``size`` (mm): the mesher samples the whole box, the
+    triangles follow the part. Fine enough for the wall where the budget
+    allows, coarser for a big part, refused when even a coarse mesh would
+    be too heavy."""
+    box = float(np.prod(np.maximum(np.asarray(size, float), 1e-9)))
+    vol = box if volume is None else min(float(volume), box)
+    res = max(min(wall / 2.0, cell / 12.0), 0.05)
+    coarsest = max(min(wall * 1.25, cell / 6.0), res)
+
+    def tris(r):
+        return TRI_FACTOR * vol / (cell * r * r)
+
+    def points(r):
+        return 2.0 * box / r ** 3
+    while (tris(res) > MAX_TRIANGLES or points(res) > MAX_POINTS) and res < coarsest:
+        res = min(res * 1.15, coarsest)
+    if tris(res) > MAX_TRIANGLES or points(res) > MAX_POINTS:
+        raise LatticeError(N_("too big for this cell: about {n} million triangles, take a larger cell"),
+                           n=f"{tris(res) / 1e6:.1f}")
+    return res, tris(res)
 
 
 def sheet_level(cell: float, wall: float) -> float:
@@ -97,15 +136,17 @@ def infill(tris, cell: float, wall: float, skin: float,
     ``Manifold`` (``to_tris`` for triangles) and a dict of figures:
     ``{"volume", "solid_volume", "triangles"}``."""
     m3 = _manifold()
+    pts = np.asarray(tris, float).reshape(-1, 3)
     part = to_manifold(tris)
     solid = part.volume()
+    res_planned, _est = plan(pts.max(0) - pts.min(0), cell, wall, solid)
     if skin > 0:
         inner = part.minkowski_difference(m3.Manifold.sphere(skin, ball_segments))
     else:
         inner = part
     if inner.is_empty() or inner.volume() <= 0:
         raise LatticeError(N_("too thin"))
-    res = resolution or max(min(wall / 2.0, cell / 12.0), 0.05)
+    res = resolution or res_planned
     lo = np.array(inner.bounding_box()[:3]) - res
     hi = np.array(inner.bounding_box()[3:]) + res
     sheet = m3.Manifold.level_set(gyroid_field(cell, wall),

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2 — 2026-10-31
+
+- Gyroid infill: the mesh resolution follows the part's size, and a part
+  too big for its cell (over about 2 million triangles, some 2 GB of
+  memory) is refused with the advice to take a larger cell, instead of
+  running for minutes. A 10 cm organic part takes cells of about 10 mm.
+
 ## 0.2.1 — 2026-10-31
 
 - The panel's sections fold under their titles (remembered); Gyroid
