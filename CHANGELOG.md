@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.3 — 2026-10-31
+
+- Parts keep their sliver triangles (under 0.001 mm²): without them a
+  closed surface has a hole, and the gyroid infill refused a repaired
+  bunny that the analysis rightly called watertight.
+
 ## 0.4.2 — 2026-10-31
 
 - The print scale belongs to the model: kept in its .igz (one undo step

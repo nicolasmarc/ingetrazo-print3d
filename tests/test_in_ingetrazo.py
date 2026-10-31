@@ -403,3 +403,23 @@ def test_an_absurd_print_size_skips_the_heavy_checks(panel):
     s = _text(panel)
     assert "check the print scale" in s and "Walls under" not in s
     panel.app.viewport.history.undo()
+
+
+def test_a_sliver_does_not_open_a_closed_part(panel):
+    """A closed part with a sliver triangle (under 0.001 mm²) stays closed
+    for the infill, as it is for the watertight count."""
+    pytest.importorskip("manifold3d")
+    from print3d import bodies as B, lattice
+    from shapes import box
+    sc = panel.scene
+    sc.groups.clear()
+    t = box(0, 0, 0, 0.02, 0.02, 0.02)
+    a, b, c = t[0]
+    p = 0.5 * (a + b) + (c - 0.5 * (a + b)) * 1e-6     # inside, a hair from edge a-b
+    parts = np.array([[a, b, p], [b, c, p], [c, a, p]])  # the first one: a sliver
+    area = 0.5 * np.linalg.norm(np.cross(parts[0, 1] - parts[0, 0], parts[0, 2] - parts[0, 0]))
+    assert area < 1e-9
+    _group_from_tris(sc, "Cube", np.concatenate([t[1:], parts]))
+    body = B.collect(sc)[0][0]
+    assert B.watertight(body)
+    lattice.to_manifold(body.tris * 1000)               # no LatticeError

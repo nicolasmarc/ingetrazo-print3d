@@ -74,7 +74,9 @@ def _shown(attrs, material):
 
 def _triangles(faces, paint, drop_slivers: bool = True):
     """Every face's triangles, facing the face's own side; colours per
-    triangle. A triangle face (most of an STL) is taken as it is; other
+    triangle. Bodies keep the slivers (``drop_slivers=False``): a closed
+    surface without its thinnest triangles is no longer closed, and the
+    gyroid infill refused a bunny the analysis called watertight. A triangle face (most of an STL) is taken as it is; other
     faces go through IngeTrazo's triangulation, turned by one vectorised
     test at the end."""
     from formats.meshexport import export_triangles
@@ -153,7 +155,7 @@ def collect(scene, selected_only: bool = True, loose: bool = True):
     for i, g in enumerate(groups):
         wm = world_mesh(g)
         faces = list(wm.faces)
-        t, c, owner, names = _triangles(faces, getattr(g, "material", None))
+        t, c, owner, names = _triangles(faces, getattr(g, "material", None), drop_slivers=False)
         if len(t):
             bodies.append(Body(group_name(g, i), g, t, c, names, faces, owner))
     if loose and not from_sel:
@@ -161,7 +163,7 @@ def collect(scene, selected_only: bool = True, loose: bool = True):
         faces = [f for f in (lm.faces if lm is not None else [])
                  if scene.entity_visible(f)]
         if faces:
-            t, c, owner, names = _triangles(faces, None)
+            t, c, owner, names = _triangles(faces, None, drop_slivers=False)
             if len(t):
                 bodies.append(Body(None, None, t, c, names, faces, owner))
     return bodies, from_sel
