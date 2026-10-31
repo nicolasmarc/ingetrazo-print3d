@@ -392,7 +392,15 @@ class Panel(QWidget):
         if getattr(self.scene, "edit_group", None) is not None:
             self.status(t("Close the group you are editing first."), 5000)
             return None, None
-        bodies, from_sel = B.collect(self.scene)
+        sc = self.scene
+        key = (sc.content_version, tuple(id(g) for g in getattr(sc, "groups", [])),
+               tuple(sorted(id(e) for e in sc.selection if hasattr(e, "mesh"))))
+        cached = getattr(self, "_bodies_cache", None)
+        if cached is not None and cached[0] == key:
+            bodies, from_sel = cached[1]
+        else:
+            bodies, from_sel = B.collect(sc)
+            self._bodies_cache = (key, (bodies, from_sel))
         if not bodies:
             self.status(t("Nothing to print: no visible faces."), 5000)
             return None, None

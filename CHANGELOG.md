@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.1 — 2026-10-31
+
+- Analyse about three times faster on a mesh (the bunny: 3.5 s → 1.3 s):
+  triangle faces are read directly and the rest turned in one vectorised
+  pass, the watertight count reads the edges without a volume pass, and
+  the parts are read once until the model or the selection changes.
+
 ## 0.4.0 — 2026-10-31
 
 - Import STL… (Repair section and menu): reads binary or ASCII STL in mm,

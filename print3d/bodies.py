@@ -72,28 +72,56 @@ def _shown(attrs, material):
         return attrs
 
 
-def _triangles(faces, paint):
+def _triangles(faces, paint, drop_slivers: bool = True):
+    """Every face's triangles, facing the face's own side; colours per
+    triangle. A triangle face (most of an STL) is taken as it is; other
+    faces go through IngeTrazo's triangulation, turned by one vectorised
+    test at the end."""
     from formats.meshexport import export_triangles
-    tris, cols, owner, names = [], [], [], {}
+    tris, cols, owner, names, fnorm = [], [], [], {}, []
+    style: dict = {}
     for i, f in enumerate(faces):
         if getattr(f, "interior", False):
             continue
-        n = f.normal()
-        nv = (n.x(), n.y(), n.z())
-        rgb, mat = face_rgb(_shown(f.attrs, paint))
-        for a, b, c in export_triangles(f):
-            p = ((a.x(), a.y(), a.z()), (b.x(), b.y(), b.z()), (c.x(), c.y(), c.z()))
-            u = np.subtract(p[1], p[0])
-            v = np.subtract(p[2], p[0])
-            if np.dot(np.cross(u, v), nv) < 0:
-                p = (p[0], p[2], p[1])
-            tris.append(p)
+        key = id(f.attrs) if f.attrs is not None else None
+        hit = style.get(key)
+        if hit is None:
+            hit = style[key] = face_rgb(_shown(f.attrs, paint))
+        rgb, mat = hit
+        loop = getattr(f, "loop", None)
+        if loop is not None and len(loop) == 3 and not getattr(f, "hole_loops", None):
+            tris.append([v.position.toTuple() for v in loop])
             cols.append(rgb)
             owner.append(i)
+            fnorm.append(None)
+        else:
+            n = f.normal()
+            nv = (n.x(), n.y(), n.z())
+            src = export_triangles(f) if drop_slivers else f.triangulate()
+            for a, b, c in src:
+                tris.append([a.toTuple(), b.toTuple(), c.toTuple()])
+                cols.append(rgb)
+                owner.append(i)
+                fnorm.append(nv)
         if mat:
             from .export import hex_colour
             names.setdefault(hex_colour(rgb), str(mat))
     t = np.array(tris, float).reshape(-1, 3, 3)
+    poly = np.array([k for k, nv in enumerate(fnorm) if nv is not None], np.int64)
+    if len(poly):
+        nv = np.array([fnorm[k] for k in poly], float)
+        tt = t[poly]
+        n = np.cross(tt[:, 1] - tt[:, 0], tt[:, 2] - tt[:, 0])
+        flip = poly[(n * nv).sum(axis=1) < 0]
+        t[flip] = t[flip][:, ::-1]
+    if drop_slivers and len(t):
+        tri_faces = np.array([nv is None for nv in fnorm], bool)
+        area = 0.5 * np.linalg.norm(np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0]), axis=1)
+        keep = ~tri_faces | (area >= 1e-9)
+        t = t[keep]
+        cols = np.asarray(cols, float).reshape(-1, 3)[keep]
+        owner = np.asarray(owner, np.int64)[keep]
+        return t, cols, owner, names
     return t, np.array(cols, float).reshape(-1, 3), np.array(owner, np.int64), names
 
 
@@ -140,12 +168,21 @@ def collect(scene, selected_only: bool = True, loose: bool = True):
 
 
 def watertight(body) -> bool:
-    """IngeTrazo's own rule (``core.solids.solid_report``)."""
+    """IngeTrazo's rule (``core.solids.solid_report``: every edge between
+    exactly two faces, a volume), checked on the group's own mesh edges —
+    without the volume pass, which the analyses do not need."""
     if body.group is None:
         return False
     try:
-        from core.group import world_mesh
-        from core.solids import solid_report
-        return bool(solid_report(world_mesh(body.group))[0])
+        mesh = body.group.mesh
+        if getattr(body.group, "children", None):
+            from core.group import world_mesh
+            mesh = world_mesh(body.group)
+        if not mesh.faces:
+            return False
+        for e in mesh.edges:
+            if sum(1 for f in e.faces if not getattr(f, "interior", False)) != 2:
+                return False
+        return True
     except Exception:  # noqa: BLE001
         return False
