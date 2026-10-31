@@ -12,6 +12,7 @@ from PySide6.QtGui import QColor, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import (QApplication, QComboBox, QDockWidget, QSlider,
                                QDoubleSpinBox, QFileDialog, QFormLayout,
                                QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+                               QSizePolicy, QToolButton,
                                QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from . import bodies as B
@@ -74,6 +75,7 @@ class Panel(QWidget):
         self.infill_preview: list = []
         self.preview_cv = None
         self._settings = QSettings()
+        self.sections: dict = {}
         self._build()
         app.add_overlay(self._paint)
         app.on_document_changed(self._document_changed)
@@ -96,6 +98,41 @@ class Panel(QWidget):
         b.clicked.connect(slot)
         return b
 
+    def _section(self, key, title, default_open=True):
+        """A section that folds under its title (remembered per user)."""
+        sec = QWidget()
+        v = QVBoxLayout(sec)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(2)
+        head = QToolButton()
+        head.setText(title)
+        head.setCheckable(True)
+        head.setToolButtonStyle(Qt.ToolButtonTextBesideIcon)
+        head.setAutoRaise(True)
+        head.setStyleSheet("QToolButton { font-weight: bold; border: none; text-align: left; padding: 2px; }")
+        head.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        body = QGroupBox()
+        v.addWidget(head)
+        v.addWidget(body)
+        sec.head, sec.body = head, body
+        stored = self._settings.value(_KEY + "open_" + key, None)
+        is_open = default_open if stored is None else str(stored).lower() in ("true", "1")
+
+        def show(on, k=key):
+            head.setArrowType(Qt.DownArrow if on else Qt.RightArrow)
+            body.setVisible(on)
+            self._settings.setValue(_KEY + "open_" + k, bool(on))
+        head.toggled.connect(show)
+        head.setChecked(is_open)
+        show(is_open)
+        self.sections[key] = sec
+        return sec
+
+    def open_section(self, key) -> None:
+        sec = self.sections.get(key)
+        if sec is not None:
+            sec.head.setChecked(True)
+
     def _spin(self, key, default, lo, hi, suffix, decimals=1, step=0.1):
         w = QDoubleSpinBox()
         loc = {"es": QLocale.Spanish, "fr": QLocale.French}.get(lang())
@@ -117,7 +154,8 @@ class Panel(QWidget):
         lay.setContentsMargins(6, 6, 6, 6)
         lay.setSpacing(6)
 
-        box = QGroupBox(t("Print setup"))
+        sec = self._section("setup", t("Print setup"), True)
+        box = sec.body
         form = QFormLayout(box)
         self.direction = QComboBox()
         for label, _v in DIRECTIONS:
@@ -136,7 +174,7 @@ class Panel(QWidget):
         for x, y, z in BEDS:
             self.bed.addItem(f"{x} × {y} × {z} mm")
         self.bed.addItem(t("Custom…"))
-        bed_row = QWidget()
+        bed_row = self.bed_row = QWidget()
         bl = QHBoxLayout(bed_row)
         bl.setContentsMargins(0, 0, 0, 0)
         self.bed_xyz = [self._spin(f"bed_{a}", d, 10, 2000, " mm", 0, 10)
@@ -156,12 +194,15 @@ class Panel(QWidget):
         form.addRow(t("Print scale"), self.scale)
         form.addRow(t("Printer bed"), self.bed)
         form.addRow("", bed_row)
+        self.setup_form = form
+        self._bed_changed(self.bed.currentIndex())
         form.addRow(t("Overhang limit"), self.angle)
         form.addRow(t("Minimum wall"), self.wall)
         form.addRow(t("Minimum gap"), self.gap)
-        lay.addWidget(box)
+        lay.addWidget(sec)
 
-        box = QGroupBox(t("Ready to print?"))
+        sec = self._section("ready", t("Ready to print?"), True)
+        box = sec.body
         v = QVBoxLayout(box)
         self.scope = QLabel()
         self.scope.setWordWrap(True)
@@ -180,9 +221,10 @@ class Panel(QWidget):
         self.clear_btn = QPushButton(t("Clear the view"))
         self.clear_btn.clicked.connect(self.clear)
         v.addWidget(self.clear_btn)
-        lay.addWidget(box)
+        lay.addWidget(sec)
 
-        box = QGroupBox(t("Inspect"))
+        sec = self._section("inspect", t("Inspect"), True)
+        box = sec.body
         g = QGridLayout(box)
         g.setSpacing(4)
         tools = [
@@ -209,9 +251,10 @@ class Panel(QWidget):
         self.orient_lay = QVBoxLayout(self.orient_box)
         self.orient_lay.setContentsMargins(0, 0, 0, 0)
         g.addWidget(self.orient_box, 4, 0, 1, 2)
-        lay.addWidget(box)
+        lay.addWidget(sec)
 
-        box = QGroupBox(t("Gyroid infill"))
+        sec = self._section("gyroid", t("Gyroid infill"), False)
+        box = sec.body
         form = QFormLayout(box)
         intro = QLabel(t("Lightens a part: it keeps a skin, its inside becomes a gyroid. Made at export; the model stays light."))
         intro.setWordWrap(True)
@@ -248,15 +291,16 @@ class Panel(QWidget):
         self.infill_info.setTextFormat(Qt.RichText)
         self.infill_info.setWordWrap(True)
         form.addRow(self.infill_info)
-        lay.addWidget(box)
+        lay.addWidget(sec)
 
-        box = QGroupBox(t("Export"))
+        sec = self._section("export", t("Export"), True)
+        box = sec.body
         g = QGridLayout(box)
         g.addWidget(self._button("3MF (colours)…", N_("3MF (colours)…"), self.export_3mf,
                                  N_("One object per part with its colours, in millimetres at the print scale and orientation.")), 0, 0)
         g.addWidget(self._button("Binary STL…", N_("Binary STL…"), self.export_stl,
                                  N_("Every part in one STL, in millimetres at the print scale and orientation.")), 0, 1)
-        lay.addWidget(box)
+        lay.addWidget(sec)
         lay.addStretch(1)
 
         scroll = QScrollArea()
@@ -275,6 +319,9 @@ class Panel(QWidget):
                 w.setValue(BEDS[i][k])
                 w.blockSignals(False)
             w.setEnabled(custom)
+        form = getattr(self, "setup_form", None)
+        if form is not None and hasattr(form, "setRowVisible"):
+            form.setRowVisible(self.bed_row, custom)
 
     # ---- settings in model units --------------------------------------------
     @property

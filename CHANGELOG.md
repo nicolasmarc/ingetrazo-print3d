@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-10-31
+
+- The panel's sections fold under their titles (remembered); Gyroid
+  infill starts folded and opens from Extensions ▸ 3D Print ▸ Gyroid
+  infill…. The custom bed sizes show only for a custom bed.
+
 ## 0.2.0 — 2026-10-31
 
 - Gyroid infill: the selected parts keep a skin and their inside becomes a
