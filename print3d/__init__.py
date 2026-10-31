@@ -4,10 +4,10 @@
 
 Checks (overhangs, wall thickness, trapped cavities, gaps between parts,
 size against the bed), the orientation that needs the least support,
-laying a part flat on a face, a gyroid infill under a skin, and export to
+laying a part flat on a face, hole repair, a gyroid infill under a skin, and export to
 3MF with colours or STL at the print scale. The analyses only draw over the view: the document changes
 only when you turn parts (one undo step)."""
-__version__ = "0.2.2"
+__version__ = "0.3.0"
 
 
 def setup(app):

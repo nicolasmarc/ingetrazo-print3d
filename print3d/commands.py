@@ -66,3 +66,46 @@ class SetInfillCommand(Command):
         for g, ext in zip(self.groups, self.before):
             g.ext = dict(ext) if ext else None
         scene.version += 1
+
+
+class FillHolesCommand(Command):
+    """Close holes in ``groups`` (``only``: ``{group: {loop index}}`` for
+    chosen holes). Snapshot undo of each touched mesh, as IngeTrazo's own
+    solid repair does."""
+
+    keeps_paint = True
+
+    def __init__(self, groups, smooth: bool = True, only=None) -> None:
+        self.groups = list(groups)
+        self.smooth = smooth
+        self.only = only or {}
+        self.before: list = []
+        self.after: list = []
+        self.done = {"filled": 0, "failed": 0, "faces": 0}
+
+    def _touch(self, scene) -> None:
+        from core.history import _dirty_group_chunks
+        for g in self.groups:
+            g.mesh._winding_rev = getattr(g.mesh, "_winding_rev", 0) + 1
+        _dirty_group_chunks(scene)
+        scene.version += 1
+
+    def do(self, scene) -> None:
+        if self.after:
+            for g, snap in zip(self.groups, self.after):
+                g.mesh.restore_state(snap)
+            self._touch(scene)
+            return
+        from .repair import fill_group
+        for g in self.groups:
+            self.before.append(g.mesh.capture_state())
+            r = fill_group(g, self.smooth, self.only.get(id(g)))
+            for k in self.done:
+                self.done[k] += r[k]
+            self.after.append(g.mesh.capture_state())
+        self._touch(scene)
+
+    def undo(self, scene) -> None:
+        for g, snap in zip(self.groups, self.before):
+            g.mesh.restore_state(snap)
+        self._touch(scene)

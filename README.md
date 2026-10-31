@@ -36,6 +36,14 @@ face). *Appliquer* tourne les pièces. *Poser sur une face*, puis un clic sur
 une face, la pose sur le plateau. Chaque fois : **une seule étape
 d'annulation**, et le point le plus bas reste à sa hauteur.
 
+**Réparer** — *Voir les trous* dessine en orange le bord des trous des
+pièces ; *Boucher tous les trous* les ferme en une étape d'annulation ;
+*Boucher un trou* puis un clic près d'un bord ferme celui-là. *Rustine
+lisse* : la rustine prolonge la courbure autour du trou (lissage
+bi-harmonique, triangulation de Delaunay) ; *Bouchon plat* : un simple
+bouchon. Un trou dans une face plane reçoit toujours une seule face plane.
+Les trous se ferment dans la définition d'un composant (toutes ses copies).
+
 **Remplissage gyroïde** — pour alléger une pièce : elle garde une peau
 pleine d'épaisseur choisie et son intérieur devient un gyroïde (surface
 minimale triplement périodique, auto-portante, sans supports internes).
@@ -99,6 +107,13 @@ that need the least support (support area and volume, print height; a
 part balanced on an edge comes after any part on a face). *Apply* turns
 them. *Lay flat on a face*, then a click on a face, puts that face on the
 bed. Each time: **one undo step**, and the lowest point keeps its height.
+
+**Repair** — *Show holes* draws the rims of the parts' holes in orange;
+*Fill every hole* closes them in one undo step; *Fill one hole*, then a
+click near a rim, closes that one. *Smooth patch*: the patch carries on
+the curve around the hole (bi-harmonic fairing, Delaunay triangulation);
+*Flat cap*: a plain cap. A hole in a flat face always gets one flat face.
+A component's holes are closed in its definition (every copy).
 
 **Gyroid infill** — to lighten a part: it keeps a solid skin of the chosen
 thickness and its inside becomes a gyroid (a triply periodic minimal

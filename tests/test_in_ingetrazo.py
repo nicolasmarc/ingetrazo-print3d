@@ -263,3 +263,79 @@ def test_gyroid_infill_apply_preview_export_undo(panel, tmp_path):
     assert panel.infill_of(console) is not None
     vp.history.undo()
     panel._infill_cache.clear()
+
+
+def _group_from_tris(scene, name, tris):
+    from PySide6.QtGui import QVector3D
+    from core.group import Group
+    from core.mesh import Mesh
+    g = Group(Mesh(), name)
+    for tri in tris:
+        f = g.mesh.add_face([QVector3D(*map(float, p)) for p in tri])
+        f.attrs = {"color": (0.7, 0.6, 0.9)}
+    scene.groups.append(g)
+    scene.version += 1
+    return g
+
+
+def test_fill_holes_in_a_sphere_and_a_box(panel):
+    from core.solids import solid_report
+    from test_holes import uv_sphere
+    from shapes import box
+    sc = panel.scene
+    sc.groups.clear()
+    s = uv_sphere(0.04, 48, 24)                      # 8 cm ball, metres
+    c = s.mean(axis=1)
+    holed = s[~((c[:, 0] > 0.034) | (c[:, 2] > 0.038))]
+    ball = _group_from_tris(sc, "Boule", holed)
+    t = box(0.1, 0, 0, 0.13, 0.03, 0.03)
+    n = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])
+    cube = _group_from_tris(sc, "Cube", t[n[:, 2] <= 0.99 * np.linalg.norm(n, axis=1)])
+    assert not solid_report(ball.mesh)[0] and not solid_report(cube.mesh)[0]
+
+    assert panel.show_holes() == 3
+    assert "3 holes in 2 parts" in panel.hole_info.text()
+    panel.patch_mode.setCurrentIndex(0)              # smooth
+    panel.fill_all_holes()
+    ok, vol = solid_report(ball.mesh)
+    assert ok
+    assert any(e.soft for e in ball.mesh.edges)       # the patch reads smooth
+    exact = 4 / 3 * np.pi * 0.04 ** 3
+    assert vol == pytest.approx(exact, rel=0.03)
+    ok, vol = solid_report(cube.mesh)
+    assert ok and vol == pytest.approx(0.03 ** 3, rel=1e-6)
+    assert len(cube.mesh.faces) == 11               # the top: ONE flat face
+    vp = panel.app.viewport
+    vp.history.undo()
+    vp.notify_scene_changed()
+    assert not solid_report(ball.mesh)[0] and not solid_report(cube.mesh)[0]
+    assert "holes" not in panel.layers              # the model changed
+
+
+def test_click_a_rim_fills_that_hole_only(panel, window):
+    from PySide6.QtWidgets import QApplication
+    from core.solids import solid_report
+    from shapes import box
+    sc = panel.scene
+    sc.groups.clear()
+    t = box(0, 0, 0, 0.03, 0.03, 0.03)
+    n = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])
+    n /= np.linalg.norm(n, axis=1, keepdims=True)
+    cube = _group_from_tris(sc, "Cube", t[np.abs(n[:, 2]) < 0.99])   # no top, no bottom
+    vp = window.viewport
+    vp.camera.set_view("iso")
+    window._on_zoom_extents()
+    QApplication.processEvents()
+    assert panel.show_holes() == 2
+    panel.arm_fill_one()
+    top_edge_mid = np.array([[0.015, 0.03, 0.03]])  # on the top hole's rim only
+    px, py, _f = panel.app.world_to_pixels(top_edge_mid)
+    hit = vp.pick_extension_item(float(px[0]), float(py[0]))
+    assert hit is not None
+    vp.set_extension_pick(hit)
+    for _ in range(5):
+        QApplication.processEvents()
+    assert len(cube.mesh.faces) == 8 + 1             # the sides, and ONE cap
+    assert panel.show_holes() == 1
+    assert not solid_report(cube.mesh)[0]
+    vp.history.undo()

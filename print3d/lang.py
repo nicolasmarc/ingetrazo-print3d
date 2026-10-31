@@ -174,6 +174,40 @@ FR = {
         'pièce plus fine que sa peau',
     'too big for this cell: about {n} million triangles, take a larger cell':
         'trop grande pour cette cellule : environ {n} millions de triangles, prendre une cellule plus grande',
+    'Repair':
+        'Réparer',
+    'Holes':
+        'Trous',
+    'Smooth patch':
+        'Rustine lisse',
+    'Flat cap':
+        'Bouchon plat',
+    'Smooth: the patch carries on the curve around the hole. Flat: a plain cap. A hole in a flat face is always capped flat.':
+        'Lisse : la rustine prolonge la courbure autour du trou. Plat : un simple bouchon. Un trou dans une face plane est toujours bouché à plat.',
+    'Show holes':
+        'Voir les trous',
+    'Finds the holes of the selected parts (or all) and draws their rims.':
+        'Cherche les trous des pièces sélectionnées (ou de toutes) et dessine leurs bords.',
+    'Fill one hole':
+        'Boucher un trou',
+    "Then click near a hole's rim: that hole is closed.":
+        "Cliquez ensuite près du bord d'un trou : ce trou est bouché.",
+    'Fill every hole':
+        'Boucher tous les trous',
+    'Closes every hole of the selected parts (or all) in one undo step.':
+        "Bouche tous les trous des pièces sélectionnées (ou de toutes) en une étape d'annulation.",
+    '{n} holes in {p} parts (rims in orange)':
+        '{n} trous dans {p} pièces (bords en orange)',
+    'No hole: every part is closed':
+        'Aucun trou : toutes les pièces sont fermées',
+    '{n} holes filled ({f} faces)':
+        '{n} trous bouchés ({f} faces)',
+    '{n} could not be filled':
+        "{n} n'ont pas pu être bouchés",
+    'Click near the rim of the hole to fill (Select tool).':
+        'Cliquez près du bord du trou à boucher (outil Sélection).',
+    'No hole rim near the cursor.':
+        'Aucun bord de trou près du curseur.',
 }
 
 ES = {
@@ -345,6 +379,40 @@ ES = {
         'pieza más delgada que su piel',
     'too big for this cell: about {n} million triangles, take a larger cell':
         'demasiado grande para esta celda: unos {n} millones de triángulos, usa una celda mayor',
+    'Repair':
+        'Reparar',
+    'Holes':
+        'Agujeros',
+    'Smooth patch':
+        'Parche suave',
+    'Flat cap':
+        'Tapa plana',
+    'Smooth: the patch carries on the curve around the hole. Flat: a plain cap. A hole in a flat face is always capped flat.':
+        'Suave: el parche continúa la curvatura alrededor del agujero. Plana: una tapa simple. Un agujero en una cara plana siempre se tapa plano.',
+    'Show holes':
+        'Ver agujeros',
+    'Finds the holes of the selected parts (or all) and draws their rims.':
+        'Busca los agujeros de las piezas seleccionadas (o de todas) y dibuja sus bordes.',
+    'Fill one hole':
+        'Tapar un agujero',
+    "Then click near a hole's rim: that hole is closed.":
+        'Luego haz clic cerca del borde de un agujero: se tapa ese agujero.',
+    'Fill every hole':
+        'Tapar todos los agujeros',
+    'Closes every hole of the selected parts (or all) in one undo step.':
+        'Tapa todos los agujeros de las piezas seleccionadas (o de todas) en un paso de deshacer.',
+    '{n} holes in {p} parts (rims in orange)':
+        '{n} agujeros en {p} piezas (bordes en naranja)',
+    'No hole: every part is closed':
+        'Ningún agujero: todas las piezas están cerradas',
+    '{n} holes filled ({f} faces)':
+        '{n} agujeros tapados ({f} caras)',
+    '{n} could not be filled':
+        '{n} no se pudieron tapar',
+    'Click near the rim of the hole to fill (Select tool).':
+        'Haz clic cerca del borde del agujero que quieres tapar (herramienta Seleccionar).',
+    'No hole rim near the cursor.':
+        'Ningún borde de agujero cerca del cursor.',
 }
 
 _ALL = {"fr": FR, "es": ES}

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0 — 2026-10-31
+
+- Repair: show the holes of the parts (rims in orange), fill every hole in
+  one undo step, or click near a rim to fill that one. Smooth patch (it
+  carries on the curve around the hole: bi-harmonic fairing) or flat cap;
+  a hole in a flat face always gets one flat face. A patch that would not
+  close cleanly once IngeTrazo welds its corners falls back to a simpler
+  one, never to a broken surface. The Stanford bunny's 16 holes close in
+  a few seconds.
+
 ## 0.2.2 — 2026-10-31
 
 - Gyroid infill: the mesh resolution follows the part's size, and a part

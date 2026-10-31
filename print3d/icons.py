@@ -329,6 +329,35 @@ def _cut(p):
     p.setBrush(Qt.NoBrush)
 
 
+def _hole_show(p):
+    from PySide6.QtCore import Qt
+    p.setPen(_pen(INK, 1.2))
+    p.setBrush(_brush(BLUE, 70))
+    p.drawRoundedRect(2.5, 4, 19, 16, 3, 3)
+    p.setPen(_pen(ORANGE, 2.2))
+    p.setBrush(_brush("#ffffff", 255))
+    p.drawPolygon(_poly((8, 9), (14, 8), (16.5, 12.5), (13, 16), (7.5, 15)))
+
+
+def _hole_fill_all(p):
+    p.setPen(_pen(INK, 1.2))
+    p.setBrush(_brush(GREEN, 70))
+    p.drawRoundedRect(2.5, 4, 19, 16, 3, 3)
+    p.setPen(_pen(GREEN, 1.6))
+    p.setBrush(_brush(GREEN, 160))
+    p.drawPolygon(_poly((8, 9), (14, 8), (16.5, 12.5), (13, 16), (7.5, 15)))
+    p.setPen(_pen("#ffffff", 1.8))
+    p.drawPolyline(_poly((9.5, 12), (11.5, 14), (15, 10)))
+
+
+def _hole_fill_one(p):
+    _hole_show(p)
+    p.setPen(_pen(INK, 1.1))
+    p.setBrush(_brush("#ffffff", 255))
+    p.drawPolygon(_poly((13, 11), (13, 22), (15.6, 19.4), (17.6, 23.5), (19.3, 22.7),
+                        (17.3, 18.6), (21, 18.6)))
+
+
 _DRAW = {
     "analyse": _analyse, "inspector": _inspector,
     "Overhangs": _overhangs, "Wall thickness": _wall,
@@ -336,6 +365,8 @@ _DRAW = {
     "Fits the build volume": _fits, "Lay flat on a face": _lay_flat,
     "Best orientation": _orient,
     "Gyroid infill": _gyroid, "Preview a cut": _cut,
+    "Show holes": _hole_show, "Fill every hole": _hole_fill_all,
+    "Fill one hole": _hole_fill_one,
     "Split into bodies": _split, "Merge bodies": _merge,
     "Triangles → faces": _tri_faces,
     "Scale to size": _scale, "Hollow": _hollow, "Thicken": _thicken,

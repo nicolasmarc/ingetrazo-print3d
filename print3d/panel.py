@@ -74,6 +74,8 @@ class Panel(QWidget):
         self._infill_cache: dict = {}
         self.infill_preview: list = []
         self.preview_cv = None
+        self.picking_hole = False
+        self.holes_cv = None
         self._settings = QSettings()
         self.sections: dict = {}
         self._build()
@@ -221,6 +223,34 @@ class Panel(QWidget):
         self.clear_btn = QPushButton(t("Clear the view"))
         self.clear_btn.clicked.connect(self.clear)
         v.addWidget(self.clear_btn)
+        lay.addWidget(sec)
+
+        sec = self._section("repair", t("Repair"), True)
+        box = sec.body
+        v = QVBoxLayout(box)
+        row = QHBoxLayout()
+        row.addWidget(QLabel(t("Holes")))
+        self.patch_mode = QComboBox()
+        self.patch_mode.addItems([t("Smooth patch"), t("Flat cap")])
+        self.patch_mode.setToolTip(t("Smooth: the patch carries on the curve around the hole. Flat: a plain cap. A hole in a flat face is always capped flat."))
+        self.patch_mode.setCurrentIndex(int(self._settings.value(_KEY + "patch", 0)))
+        self.patch_mode.currentIndexChanged.connect(
+            lambda i: self._settings.setValue(_KEY + "patch", i))
+        row.addWidget(self.patch_mode, 1)
+        v.addLayout(row)
+        g = QGridLayout()
+        g.setSpacing(4)
+        g.addWidget(self._button("Show holes", N_("Show holes"), self.show_holes,
+                                 N_("Finds the holes of the selected parts (or all) and draws their rims.")), 0, 0)
+        g.addWidget(self._button("Fill one hole", N_("Fill one hole"), self.arm_fill_one,
+                                 N_("Then click near a hole's rim: that hole is closed.")), 0, 1)
+        g.addWidget(self._button("Fill every hole", N_("Fill every hole"), self.fill_all_holes,
+                                 N_("Closes every hole of the selected parts (or all) in one undo step.")), 1, 0, 1, 2)
+        v.addLayout(g)
+        self.hole_info = QLabel()
+        self.hole_info.setTextFormat(Qt.RichText)
+        self.hole_info.setWordWrap(True)
+        v.addWidget(self.hole_info)
         lay.addWidget(sec)
 
         sec = self._section("inspect", t("Inspect"), True)
@@ -383,7 +413,7 @@ class Panel(QWidget):
         try:
             self._run(bodies, from_sel, what)
             self.shown = set(show if show is not None else what) | (
-                {"section"} if "section" in self.layers else set())
+                {k for k in ("section", "holes") if k in self.layers})
         finally:
             QApplication.restoreOverrideCursor()
             self.busy = False
@@ -395,7 +425,7 @@ class Panel(QWidget):
         level = mesh3d.bed_level(allt, up)
         tol = max(1e-6, 1e-6 * float(np.ptp(allt.reshape(-1, 3), axis=0).max()))
         k = self.k()
-        self.layers = {key: v for key, v in self.layers.items() if key == "section"}
+        self.layers = {key: v for key, v in self.layers.items() if key in ("section", "holes")}
         self._clear_orient_rows()
         lines = []
         self.result = {"bodies": bodies, "up": up, "level": level}
@@ -597,6 +627,8 @@ class Panel(QWidget):
         return o, d / np.linalg.norm(d)
 
     def _pick(self, vp, px, py):
+        if self.picking_hole:
+            return self._pick_hole(px, py)
         if not self.picking:
             return None
         ray = self._ray(px, py)
@@ -632,12 +664,16 @@ class Panel(QWidget):
     def clear(self) -> None:
         self.layers = {}
         self.shown = set()
+        self.picking_hole = False
         self.infill_preview = []
         self._clear_orient_rows()
         self.app.viewport.update()
 
     def _document_changed(self) -> None:
         cv = self.scene.content_version
+        if "holes" in self.layers and cv != self.holes_cv:
+            self.layers.pop("holes", None)
+            self.app.viewport.update()
         if self.infill_preview and cv != self.preview_cv:
             self.infill_preview = []
             self.layers.pop("section", None)
@@ -645,7 +681,7 @@ class Panel(QWidget):
         if not self.layers or self.analysed_cv is None:
             return
         if cv != self.analysed_cv:
-            for key in [k for k in self.layers if k != "section"]:
+            for key in [k for k in self.layers if k not in ("section", "holes")]:
                 self.layers.pop(key)
             self._clear_orient_rows()
             self.summary.setText(t("The model changed: press Analyse again."))
@@ -664,6 +700,8 @@ class Panel(QWidget):
                 # a cavity is inside the part: drawn through it on purpose
                 self._paint_tris(painter, item[0], item[1], eye, key != "cavities",
                                  depth if key != "cavities" else None)
+        if self.layers.get("holes") and "holes" in self.shown:
+            self._paint_holes(painter, self.layers["holes"], depth)
         if self.layers.get("section") and "section" in self.shown:
             self._paint_section(painter, self.layers["section"])
         if self.layers.get("gaps") and "gaps" in self.shown:
@@ -874,6 +912,137 @@ class Panel(QWidget):
         for name, why in skipped:
             self.status(t("{p}: infill left out ({why})", p=name, why=why), 8000)
         return out
+
+    # ---- holes ------------------------------------------------------------------------
+    def _hole_groups(self):
+        if getattr(self.scene, "edit_group", None) is not None:
+            self.status(t("Close the group you are editing first."), 5000)
+            return None
+        groups, _sel = B.candidate_groups(self.scene)
+        return groups
+
+    def show_holes(self, quiet: bool = False) -> int:
+        from .repair import GroupHoles
+        groups = self._hole_groups()
+        if groups is None:
+            return 0
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            found = []
+            for g in groups:
+                gh = GroupHoles(g)
+                for k, rim in enumerate(gh.rims_world()):
+                    found.append((g, k, rim))
+        finally:
+            QApplication.restoreOverrideCursor()
+        parts = len({id(g) for g, _k, _r in found})
+        if found:
+            self.layers["holes"] = found
+            self.shown = set(self.shown) | {"holes"}
+            self.hole_info.setText(f"{WARN_DOT} " + t("{n} holes in {p} parts (rims in orange)",
+                                                       n=len(found), p=parts))
+        else:
+            self.layers.pop("holes", None)
+            self.hole_info.setText(f"{GREEN_DOT} " + t("No hole: every part is closed"))
+        self.holes_cv = self.scene.content_version
+        self.app.viewport.update()
+        return len(found)
+
+    def _fill(self, groups, only=None) -> None:
+        from .commands import FillHolesCommand
+        cmd = FillHolesCommand(groups, smooth=self.patch_mode.currentIndex() == 0, only=only)
+        vp = self.app.viewport
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            vp.history.execute(cmd)
+        finally:
+            QApplication.restoreOverrideCursor()
+        if getattr(vp.history, "last_error", None):
+            self.status(vp.history.last_error, 6000)
+            return
+        vp.notify_scene_changed()
+        d = cmd.done
+        msg = t("{n} holes filled ({f} faces)", n=d["filled"], f=d["faces"])
+        if d["failed"]:
+            msg += " — " + t("{n} could not be filled", n=d["failed"])
+        self.status(msg, 6000)
+        QTimer.singleShot(0, lambda: self._after_fill(msg))
+
+    def _after_fill(self, msg) -> None:
+        left = self.show_holes()
+        if not left:
+            self.hole_info.setText(f"{GREEN_DOT} " + msg + "<br>" + f"{GREEN_DOT} "
+                                   + t("No hole: every part is closed"))
+
+    def fill_all_holes(self) -> None:
+        groups = self._hole_groups()
+        if groups is None:
+            return
+        from .repair import GroupHoles
+        with_holes = [g for g in groups if GroupHoles(g).loops]
+        if not with_holes:
+            self.hole_info.setText(f"{GREEN_DOT} " + t("No hole: every part is closed"))
+            return
+        self._fill(with_holes)
+
+    def arm_fill_one(self) -> None:
+        if not self.layers.get("holes") and not self.show_holes():
+            return
+        self.picking_hole = True
+        act = getattr(self.app.window, "_activate_tool", None)
+        if act is not None:
+            try:
+                act("select")
+            except Exception:  # noqa: BLE001
+                pass
+        self.status(t("Click near the rim of the hole to fill (Select tool)."), 8000)
+
+    def _pick_hole(self, px, py):
+        self.picking_hole = False
+        best = None
+        for g, k, rim in self.layers.get("holes") or []:
+            x, y, front = self.app.world_to_pixels(rim)
+            x, y = np.asarray(x, float), np.asarray(y, float)
+            ax, ay = x, y
+            bx, by = np.roll(x, -1), np.roll(y, -1)
+            dx, dy = bx - ax, by - ay
+            tt = np.clip(((px - ax) * dx + (py - ay) * dy) / np.maximum(dx * dx + dy * dy, 1e-9), 0, 1)
+            d = np.hypot(ax + tt * dx - px, ay + tt * dy - py)
+            ok = np.asarray(front, bool) & np.roll(np.asarray(front, bool), -1)
+            if not ok.any():
+                continue
+            dm = float(d[ok].min())
+            if best is None or dm < best[0]:
+                best = (dm, g, k)
+        if best is None or best[0] > 16.0:
+            self.status(t("No hole rim near the cursor."))
+            return None
+        _d, g, k = best
+        QTimer.singleShot(0, lambda: self._fill_one(g, k))
+        return ("fill-hole", id(g), k)
+
+    def _fill_one(self, g, k) -> None:
+        if hasattr(self.app, "release_pick"):
+            self.app.release_pick()
+        self._fill([g], only={id(g): {k}})
+
+    def _paint_holes(self, painter, found, depth) -> None:
+        pen = QPen(QColor(255, 110, 0), 3.5)
+        pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen)
+        for _g, _k, rim in found:
+            px, py, front = self.app.world_to_pixels(rim)
+            seen = np.asarray(front, bool)
+            if depth is not None:
+                try:
+                    seen = seen & self._seen(depth, rim)
+                except Exception:  # noqa: BLE001
+                    pass
+            n = len(rim)
+            for i in range(n):
+                j = (i + 1) % n
+                if front[i] and front[j] and (seen[i] or seen[j]):
+                    painter.drawLine(QPointF(px[i], py[i]), QPointF(px[j], py[j]))
 
     # ---- gyroid infill ---------------------------------------------------------------
     def infill_of(self, group):
