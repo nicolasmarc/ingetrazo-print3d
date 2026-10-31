@@ -1193,15 +1193,50 @@ class Panel(QWidget):
                tuple(np.round(np.r_[frame[0], frame[1], frame[2], frame[3]], 9)))
         hit = self._infill_cache.get(key)
         if hit is None:
-            QApplication.setOverrideCursor(Qt.WaitCursor)
-            try:
-                hit = lattice.infill(tris_mm, params["cell"], params["wall"], params["skin"])
-            finally:
-                QApplication.restoreOverrideCursor()
+            hit = self._with_progress(
+                body.name or t("Loose geometry"),
+                lambda progress: lattice.infill(tris_mm, params["cell"], params["wall"],
+                                                params["skin"], progress=progress))
             if len(self._infill_cache) > 8:
                 self._infill_cache.clear()
             self._infill_cache[key] = hit
         return hit
+
+    def _with_progress(self, part_name, work):
+        """Run ``work(progress)`` behind a progress window that can stop it
+        (:class:`lattice.Cancelled`)."""
+        import threading
+        from PySide6.QtWidgets import QProgressDialog
+        dlg = QProgressDialog(self.app.window)
+        dlg.setWindowTitle(t("Gyroid infill"))
+        dlg.setCancelButtonText(t("Cancel"))
+        dlg.setWindowModality(Qt.WindowModal)
+        dlg.setMinimumDuration(0)
+        dlg.setAutoClose(False)
+        dlg.setAutoReset(False)
+        dlg.setRange(0, 0)
+        dlg.setMinimumWidth(380)
+        main = threading.main_thread().ident
+
+        def progress(stage, frac):
+            if threading.get_ident() != main:
+                return True                    # never touch Qt from another thread
+            dlg.setLabelText(f"{part_name} — {t(stage)}")
+            if frac is None:
+                dlg.setRange(0, 0)
+            else:
+                if dlg.maximum() != 100:
+                    dlg.setRange(0, 100)
+                dlg.setValue(int(round(100 * frac)))
+            QApplication.processEvents()
+            return not dlg.wasCanceled()
+        dlg.show()
+        QApplication.processEvents()
+        try:
+            return work(progress)
+        finally:
+            dlg.close()
+            dlg.deleteLater()
 
     def _infill_summary(self, lines=None) -> None:
         bodies, _sel = B.collect(self.scene)
@@ -1231,6 +1266,9 @@ class Panel(QWidget):
             tris = self._to_print(frame, b.tris).reshape(-1, 3, 3)
             try:
                 man, info = self._infill(b, tris, params, frame)
+            except lattice.Cancelled:
+                self.status(t("Stopped."))
+                return
             except lattice.LatticeError as exc:
                 lines.append(f"{BAD_DOT} {b.name}: {t(exc.key, **exc.kw)}")
                 continue
@@ -1294,21 +1332,33 @@ class Panel(QWidget):
         return path
 
     def export_3mf(self) -> None:
-        bodies = self._print_bodies()
-        if bodies is None:
+        if self._bodies()[0] is None:
             return
         path = self._ask_path(t("Export 3MF"), "3MF (*.3mf)", ".3mf")
         if not path:
+            return
+        try:
+            bodies = self._print_bodies()
+        except lattice.Cancelled:
+            self.status(t("Stopped: nothing written."))
+            return
+        if bodies is None:
             return
         n = export.write_3mf(path, bodies)
         self.status(t("{n} parts written to {f}", n=n["objects"], f=path), 6000)
 
     def export_stl(self) -> None:
-        bodies = self._print_bodies()
-        if bodies is None:
+        if self._bodies()[0] is None:
             return
         path = self._ask_path(t("Export STL"), "STL (*.stl)", ".stl")
         if not path:
+            return
+        try:
+            bodies = self._print_bodies()
+        except lattice.Cancelled:
+            self.status(t("Stopped: nothing written."))
+            return
+        if bodies is None:
             return
         n = export.write_stl(path, bodies)
         self.status(t("{n} triangles written to {f}", n=n, f=path), 6000)

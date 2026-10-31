@@ -96,3 +96,25 @@ def test_a_big_part_gets_a_coarser_mesh_then_is_refused():
     with pytest.raises(lattice.LatticeError) as e:
         lattice.plan((400, 300, 300), cell=4.0, wall=0.8)
     assert "million triangles" in str(e.value)
+
+
+def test_progress_is_reported_and_can_stop():
+    seen = []
+
+    def watch(stage, frac):
+        seen.append((stage, frac))
+        return True
+    lattice.infill(box(0, 0, 0, 30, 30, 30), cell=6.0, wall=0.8, skin=1.2, progress=watch)
+    stages = [s for s, _f in seen]
+    assert stages[0] == "Skin…" and "Gyroid…" in stages and stages[-1] == "Assembling…"
+    fr = [f for s, f in seen if s == "Gyroid…"]
+    assert fr == sorted(fr) and len(fr) > 3 and fr[-1] < 1.0
+
+    calls = []
+
+    def stop(stage, frac):
+        calls.append(stage)
+        return not (stage == "Gyroid…" and frac and frac > 0.2)
+    with pytest.raises(lattice.Cancelled):
+        lattice.infill(box(0, 0, 0, 30, 30, 30), cell=6.0, wall=0.8, skin=1.2, progress=stop)
+    assert "Assembling…" not in calls

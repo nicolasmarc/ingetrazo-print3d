@@ -28,6 +28,10 @@ WALL_FACTOR = 1.47
 T_MAX = 1.1
 
 
+class Cancelled(Exception):
+    """The user stopped the computation."""
+
+
 class LatticeError(Exception):
     """The part cannot take an infill (open, too thin, too big...).
     ``key`` is the English text, ``kw`` its values (the panel translates)."""
@@ -129,19 +133,33 @@ def gyroid_field(cell: float, wall: float):
 
 
 def infill(tris, cell: float, wall: float, skin: float,
-           resolution: float | None = None, ball_segments: int = 12):
+           resolution: float | None = None, ball_segments: int = 8, progress=None):
     """The part with its inside turned into a gyroid sheet.
 
     ``tris``: the closed part in millimetres. Returns a manifold3d
     ``Manifold`` (``to_tris`` for triangles) and a dict of figures:
-    ``{"volume", "solid_volume", "triangles"}``."""
+    ``{"volume", "solid_volume", "triangles"}``.
+
+    ``progress(stage, fraction)`` — ``stage`` an English text, ``fraction``
+    0..1 or ``None`` when unknown — is called along the way; returning
+    ``False`` stops with :class:`Cancelled`. The mesher asks the gyroid for
+    each grid point, which is what drives the fraction."""
+    def report(stage, frac=None):
+        if progress is not None and progress(stage, frac) is False:
+            raise Cancelled()
     m3 = _manifold()
     pts = np.asarray(tris, float).reshape(-1, 3)
     part = to_manifold(tris)
     solid = part.volume()
     res_planned, _est = plan(pts.max(0) - pts.min(0), cell, wall, solid)
+    report(N_("Skin…"))
     if skin > 0:
-        inner = part.minkowski_difference(m3.Manifold.sphere(skin, ball_segments))
+        # the inside only bounds the gyroid: a copy simplified to an eighth
+        # of the skin is eroded (the erosion costs the product of the face
+        # counts: 30 s → 7 s on a 20 000-triangle bunny), the outside of the
+        # part stays exactly as modelled
+        rough = part.simplify(skin / 8.0) if hasattr(part, "simplify") else part
+        inner = rough.minkowski_difference(m3.Manifold.sphere(skin, ball_segments))
     else:
         inner = part
     if inner.is_empty() or inner.volume() <= 0:
@@ -149,11 +167,24 @@ def infill(tris, cell: float, wall: float, skin: float,
     res = resolution or res_planned
     lo = np.array(inner.bounding_box()[:3]) - res
     hi = np.array(inner.bounding_box()[3:]) + res
-    sheet = m3.Manifold.level_set(gyroid_field(cell, wall),
-                                  [*lo.tolist(), *hi.tolist()], res)
+    field = gyroid_field(cell, wall)
+    if progress is not None:
+        expected = max(2.4 * float(np.prod(hi - lo)) / res ** 3, 1.0)
+        count = [0]
+        base = field
+
+        def field(x, y, z):               # noqa: F811 — the counted one
+            count[0] += 1
+            if count[0] % 4000 == 0:
+                report(N_("Gyroid…"), min(count[0] / expected, 0.99))
+            return base(x, y, z)
+        report(N_("Gyroid…"), 0.0)
+    sheet = m3.Manifold.level_set(field, [*lo.tolist(), *hi.tolist()], res)
+    report(N_("Assembling…"))
     out = (part - inner) + (inner ^ sheet) if skin > 0 else (part ^ sheet)
-    return out, {"volume": out.volume(), "solid_volume": solid,
-                 "triangles": out.num_tri()}
+    n_tri = out.num_tri()                 # the booleans run here
+    report(N_("Assembling…"), 1.0)
+    return out, {"volume": out.volume(), "solid_volume": solid, "triangles": n_tri}
 
 
 def section(man, z: float):

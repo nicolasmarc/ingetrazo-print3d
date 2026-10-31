@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.4 — 2026-10-31
+
+- Gyroid infill behind a progress window (skin, gyroid with a bar,
+  assembling) with Cancel; an export cancelled writes nothing. The export
+  asks for the file first, then computes.
+- Two and a half times faster: the skin erodes a copy of the part
+  simplified to an eighth of the skin thickness (the outside stays as
+  modelled). The bunny at 5.5 mm cells: 40 s → 17 s.
+
 ## 0.4.3 — 2026-10-31
 
 - Parts keep their sliver triangles (under 0.001 mm²): without them a
