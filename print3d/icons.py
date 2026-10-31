@@ -358,6 +358,14 @@ def _hole_fill_one(p):
                         (17.3, 18.6), (21, 18.6)))
 
 
+def _stl_in(p):
+    _doc(p, INK)
+    p.setPen(_pen(INK, 1.1))
+    p.setBrush(_brush(ORANGE, 120))
+    p.drawPolygon(_poly((8, 18.5), (17, 18.5), (12.5, 10)))
+    _arrow(p, 2.5, 6, 9.5, 6, BLUE, 3.0, 1.6)
+
+
 _DRAW = {
     "analyse": _analyse, "inspector": _inspector,
     "Overhangs": _overhangs, "Wall thickness": _wall,
@@ -366,7 +374,7 @@ _DRAW = {
     "Best orientation": _orient,
     "Gyroid infill": _gyroid, "Preview a cut": _cut,
     "Show holes": _hole_show, "Fill every hole": _hole_fill_all,
-    "Fill one hole": _hole_fill_one,
+    "Fill one hole": _hole_fill_one, "Import STL": _stl_in,
     "Split into bodies": _split, "Merge bodies": _merge,
     "Triangles → faces": _tri_faces,
     "Scale to size": _scale, "Hollow": _hollow, "Thicken": _thicken,

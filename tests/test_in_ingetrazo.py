@@ -359,3 +359,27 @@ def test_flat_and_doubled_faces_are_cleared_before_filling(panel):
     ok, vol = solid_report(cube.mesh)
     assert ok and vol == pytest.approx(0.03 ** 3, rel=1e-6)
     panel.app.viewport.history.undo()
+
+
+def test_stl_import_survives_the_weld(panel, tmp_path):
+    """A fine STL in millimetres (a 40 mm ball whose poles have corners a
+    few microns apart): IngeTrazo's own import welds it into edges between
+    three faces and more; ours arrives closed."""
+    import collections
+    from core.scene import Scene
+    from core.solids import solid_report
+    from formats import stl
+    from print3d import export
+    from test_holes import uv_sphere
+    ball = uv_sphere(20.0, 400, 200)                 # millimetres
+    path = tmp_path / "boule.stl"
+    export.write_stl(path, [{"tris": ball}])
+    plain = Scene()
+    stl.load_stl(plain, str(path), scale=0.001)
+    bad = collections.Counter(len(e.faces) for e in plain.groups[0].mesh.edges)
+    assert any(n != 2 for n in bad)                  # the weld broke it
+    group, rep = panel.load_stl_group(str(path), 0.001, 1e-4)
+    assert rep["collapsed"] > 0 and rep["left"] == 0
+    ok, vol = solid_report(group.mesh)
+    assert ok
+    assert vol == pytest.approx(4 / 3 * np.pi * 0.02 ** 3, rel=0.01)

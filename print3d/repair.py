@@ -35,12 +35,26 @@ class GroupHoles:
     """The holes of one group, in its mesh's own coordinates."""
 
     def __init__(self, group) -> None:
-        from .bodies import _triangles
         self.group = group
         faces = [f for f in group.mesh.faces if not getattr(f, "interior", False)
                  and len(set(map(id, getattr(f, "loop", [])))) >= 3]
         self.faces = faces
-        tris, _cols, owner, _names = _triangles(faces, None)
+        # every triangle, slivers too: a hole search must see the surface
+        # exactly as the mesh has it (an export may drop slivers, not this)
+        tris, owner = [], []
+        for i, f in enumerate(faces):
+            n = f.normal()
+            nv = (n.x(), n.y(), n.z())
+            for a, b, c in f.triangulate():
+                p = (a.toTuple(), b.toTuple(), c.toTuple())
+                u = np.subtract(p[1], p[0])
+                w = np.subtract(p[2], p[0])
+                if np.dot(np.cross(u, w), nv) < 0:
+                    p = (p[0], p[2], p[1])
+                tris.append(p)
+                owner.append(i)
+        tris = np.array(tris, float).reshape(-1, 3, 3)
+        owner = np.array(owner, np.int64)
         self.tris = tris
         self.owner = owner
         self.verts, self.idx, self.loops = holes.find(tris)

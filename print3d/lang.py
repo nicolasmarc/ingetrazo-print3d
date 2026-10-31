@@ -210,6 +210,20 @@ FR = {
         'Aucun bord de trou près du curseur.',
     '{n} flat or doubled faces removed':
         '{n} faces aplaties ou en double retirées',
+    'Import STL…':
+        'Importer un STL…',
+    'Imports an STL cleaned for IngeTrazo: corners closer than its 0.1 mm weld are merged properly first, so fine meshes in millimetres arrive whole.':
+        "Importe un STL nettoyé pour IngeTrazo : les sommets plus proches que sa soudure de 0,1 mm sont d'abord fusionnés proprement, les maillages fins en millimètres arrivent intacts.",
+    'Import STL':
+        'Importer un STL',
+    'Unit of the file':
+        'Unité du fichier',
+    'Could not read {f}: {e}':
+        'Impossible de lire {f} : {e}',
+    '{n} triangles imported':
+        '{n} triangles importés',
+    '{k} edges under {d} mm merged':
+        '{k} arêtes de moins de {d} mm fusionnées',
 }
 
 ES = {
@@ -417,6 +431,20 @@ ES = {
         'Ningún borde de agujero cerca del cursor.',
     '{n} flat or doubled faces removed':
         '{n} caras aplastadas o duplicadas eliminadas',
+    'Import STL…':
+        'Importar un STL…',
+    'Imports an STL cleaned for IngeTrazo: corners closer than its 0.1 mm weld are merged properly first, so fine meshes in millimetres arrive whole.':
+        'Importa un STL limpiado para IngeTrazo: los vértices más cercanos que su soldadura de 0,1 mm se fusionan antes correctamente, las mallas finas en milímetros llegan enteras.',
+    'Import STL':
+        'Importar un STL',
+    'Unit of the file':
+        'Unidad del archivo',
+    'Could not read {f}: {e}':
+        'No se pudo leer {f}: {e}',
+    '{n} triangles imported':
+        '{n} triángulos importados',
+    '{k} edges under {d} mm merged':
+        '{k} aristas de menos de {d} mm fusionadas',
 }
 
 _ALL = {"fr": FR, "es": ES}

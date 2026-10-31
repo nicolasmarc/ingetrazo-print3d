@@ -43,6 +43,10 @@ lisse* : la rustine prolonge la courbure autour du trou (lissage
 bi-harmonique, triangulation de Delaunay) ; *Bouchon plat* : un simple
 bouchon. Un trou dans une face plane reçoit toujours une seule face plane.
 Les trous se ferment dans la définition d'un composant (toutes ses copies).
+*Importer un STL…* lit un STL (mm, cm, m, pouces) et le nettoie pour la
+soudure de 0,1 mm d'IngeTrazo avant de l'insérer : les arêtes de moins de
+0,2 mm sont fusionnées proprement, un maillage fin en millimètres arrive
+entier (l'import d'IngeTrazo le soude en arêtes à 4 faces et plus).
 
 **Remplissage gyroïde** — pour alléger une pièce : elle garde une peau
 pleine d'épaisseur choisie et son intérieur devient un gyroïde (surface
@@ -114,6 +118,10 @@ click near a rim, closes that one. *Smooth patch*: the patch carries on
 the curve around the hole (bi-harmonic fairing, Delaunay triangulation);
 *Flat cap*: a plain cap. A hole in a flat face always gets one flat face.
 A component's holes are closed in its definition (every copy).
+*Import STL…* reads an STL (mm, cm, m, inches) and cleans it for
+IngeTrazo's 0.1 mm weld before inserting it: edges under 0.2 mm are
+collapsed properly, so a fine mesh in millimetres arrives whole
+(IngeTrazo's own import welds it into edges between four faces and more).
 
 **Gyroid infill** — to lighten a part: it keeps a solid skin of the chosen
 thickness and its inside becomes a gyroid (a triply periodic minimal

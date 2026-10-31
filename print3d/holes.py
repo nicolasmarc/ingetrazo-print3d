@@ -411,65 +411,107 @@ def is_flat(points, rel: float = 1e-4) -> bool:
 # One hole
 # ---------------------------------------------------------------------------
 
-def _closes(rim, patch, quantum, taken=()):
-    """Does ``patch`` close the rim as a clean surface once corners closer
-    than ``quantum`` are merged (what the host's weld will do)? Every rim
-    edge used once by the patch, every inner edge twice, none flat."""
+class _HostWeld:
+    """The host's weld, replayed: a point joins the vertex registered in
+    its rounded cell, else one closer than ``q`` in the 26 cells around
+    (IngeTrazo's ``Mesh.vertex``), else becomes a new vertex. Points go
+    through float32, as the host stores them."""
+
+    def __init__(self, q: float) -> None:
+        self.q = q
+        self.cells: dict = {}
+        self.pos: list = []
+
+    def _key(self, p):
+        return tuple(int(round(float(c) / self.q)) for c in p)
+
+    def add(self, p, vid=None):
+        p = np.asarray(p, np.float32).astype(float)
+        k = self._key(p)
+        hit = self.cells.get(k)
+        if hit is None:
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    for dz in (-1, 0, 1):
+                        if hit is None and (dx or dy or dz):
+                            n = self.cells.get((k[0] + dx, k[1] + dy, k[2] + dz))
+                            if n is not None and np.sum((self.pos[n] - p) ** 2) < self.q * self.q:
+                                hit = n
+        if hit is not None:
+            return hit
+        n = len(self.pos)
+        self.pos.append(p)
+        self.cells[k] = n
+        return n
+
+
+def _closes(verts, idx, loop, patch, quantum):
+    """Does ``patch`` close the hole as a clean surface once the host has
+    welded it (:class:`_HostWeld`, seeded with the surface around)? Every
+    rim edge used once by the patch, every new edge twice, no triangle
+    flattened, no new corner swallowed by the surface, no edge the surface
+    already has laid a second time."""
     from collections import Counter
-    def key(p):
-        return tuple(np.round(np.asarray(p) / quantum).astype(np.int64))
-    rk = [key(p) for p in rim]
-    rim_edges = {frozenset((rk[i], rk[(i + 1) % len(rk)])) for i in range(len(rk))}
+    verts = np.asarray(verts, float)
+    idx = np.asarray(idx, np.int64)
+    pts = patch.reshape(-1, 3)
+    lo = pts.min(0) - 3 * quantum
+    hi = pts.max(0) + 3 * quantum
+    near = np.nonzero(np.all((verts >= lo) & (verts <= hi), axis=1))[0]
+    w = _HostWeld(quantum)
+    surf_id = {}
+    for v in near.tolist():
+        surf_id[v] = w.add(verts[v])
+    n_surface = len(w.pos)
+    rim_ids = [surf_id[int(v)] for v in loop]
+    m = len(rim_ids)
+    rim_edges = {frozenset((rim_ids[i], rim_ids[(i + 1) % m])) for i in range(m)}
+    rim_set = set(rim_ids)
+    sub = idx[np.isin(idx, near).all(axis=1)]
+    existing = set()
+    for a, b, c in sub.tolist():
+        for u, v in ((a, b), (b, c), (c, a)):
+            existing.add(frozenset((surf_id[u], surf_id[v])))
     cnt = Counter()
     for tri in patch:
-        k = [key(p) for p in tri]
-        if len(set(k)) < 3:
+        ids = [w.add(p) for p in tri]
+        if len(set(ids)) < 3:
             return False
-        for a, b in ((k[0], k[1]), (k[1], k[2]), (k[2], k[0])):
+        for k in ids:
+            if k < n_surface and k not in rim_set:
+                return False                   # a new corner fell on the surface
+        for a, b in ((ids[0], ids[1]), (ids[1], ids[2]), (ids[2], ids[0])):
             cnt[frozenset((a, b))] += 1
     for e, n in cnt.items():
-        if (e in rim_edges and n != 1) or (e not in rim_edges and n != 2):
+        if e in rim_edges:
+            if n != 1:
+                return False
+        elif n != 2 or e in existing:
             return False
-        if e in taken:
-            return False                       # an edge the surface already has
     return all(cnt.get(e, 0) == 1 for e in rim_edges)
 
 
 def fill(verts, idx, loop, smooth: bool = True, max_points: int = 6000,
          quantum: float | None = None):
     """Like :func:`_fill`, checked: with ``quantum`` (the host's weld
-    distance) a smooth patch that would not close cleanly once welded
-    falls back to the flat cap."""
+    distance) a patch that would not close cleanly once welded gives way
+    to a simpler one (fan, then flat), never to a broken surface."""
     if quantum is None:
         return _fill(verts, idx, loop, smooth, max_points)
-    rim = np.asarray(verts, float)[loop]
-    # chords the surface already has between two rim corners (a triangle
-    # bridging the hole's edge): the patch must not lay a second one there
-    pos = {int(v): k for k, v in enumerate(loop)}
-    n = len(loop)
-    key_of = {k: tuple(np.round(rim[k] / quantum).astype(np.int64)) for k in range(n)}
-    taken = set()
-    sub = np.asarray(idx, np.int64)
-    sub = sub[np.isin(sub, list(pos)).sum(axis=1) >= 2]
-    for a, b, c in sub:
-        for u, v in ((a, b), (b, c), (c, a)):
-            if int(u) in pos and int(v) in pos:
-                i, j = pos[int(u)], pos[int(v)]
-                if (j - i) % n not in (1, n - 1):
-                    taken.add(frozenset((key_of[i], key_of[j])))
     tries = [(smooth, False), (smooth, True)] if smooth else []
     tries += [(False, False), (False, True)]
     for sm, fan in tries:
         try:
-            patch = _fill(verts, idx, loop, sm, max_points, fan)
+            patch = _fill(verts, idx, loop, sm, max_points, fan, min_len=3 * quantum)
         except Exception:  # noqa: BLE001
             continue
-        if _closes(rim, patch, quantum, taken):
+        if _closes(verts, idx, loop, patch, quantum):
             return patch
     raise ValueError("the patch does not close the hole")
 
 
-def _fill(verts, idx, loop, smooth: bool = True, max_points: int = 6000, fan: bool = False):
+def _fill(verts, idx, loop, smooth: bool = True, max_points: int = 6000, fan: bool = False,
+          min_len: float = 0.0):
     """Triangles ``(K, 3, 3)`` closing ``loop`` (vertex ids into ``verts``,
     in patch order, from :func:`boundary_loops`). A flat rim always gets a
     flat cap: a hole in a flat face stays flat."""
@@ -479,7 +521,7 @@ def _fill(verts, idx, loop, smooth: bool = True, max_points: int = 6000, fan: bo
         return pts[tris]
     n = len(loop)
     edges = np.linalg.norm(rim - np.roll(rim, -1, axis=0), axis=1)
-    target = max(1.5 * float(np.mean(edges)), 1e-12)
+    target = max(1.5 * float(np.mean(edges)), min_len, 1e-12)
     c, e1, e2, _nrm = _plane(rim)
     p2r = np.c_[(rim - c) @ e1, (rim - c) @ e2]
     flip_side = np.sum(p2r[:, 0] * np.roll(p2r[:, 1], -1)

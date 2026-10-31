@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 — 2026-10-31
+
+- Import STL… (Repair section and menu): reads binary or ASCII STL in mm,
+  cm, m or inches and cleans it for IngeTrazo's 0.1 mm weld before it
+  arrives: exact duplicates joined, edges under 0.2 mm collapsed while the
+  surface stays a surface (link condition, no triangle turned over). The
+  Stanford bunny in millimetres arrives with its holes only (IngeTrazo's
+  own import makes edges between up to 21 faces of it).
+- Hole search reads every triangle of the mesh, slivers included, and a
+  patch is checked against a replay of IngeTrazo's weld (cell and the 26
+  cells around) before it is added.
+
 ## 0.3.1 — 2026-10-31
 
 - Fill every hole first removes faces with fewer than three corners and

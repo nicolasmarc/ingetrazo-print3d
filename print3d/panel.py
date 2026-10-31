@@ -245,7 +245,9 @@ class Panel(QWidget):
         g.addWidget(self._button("Fill one hole", N_("Fill one hole"), self.arm_fill_one,
                                  N_("Then click near a hole's rim: that hole is closed.")), 0, 1)
         g.addWidget(self._button("Fill every hole", N_("Fill every hole"), self.fill_all_holes,
-                                 N_("Closes every hole of the selected parts (or all) in one undo step.")), 1, 0, 1, 2)
+                                 N_("Closes every hole of the selected parts (or all) in one undo step.")), 1, 0)
+        g.addWidget(self._button("Import STL", N_("Import STL…"), self.import_stl,
+                                 N_("Imports an STL cleaned for IngeTrazo: corners closer than its 0.1 mm weld are merged properly first, so fine meshes in millimetres arrive whole.")), 1, 1)
         v.addLayout(g)
         self.hole_info = QLabel()
         self.hole_info.setTextFormat(Qt.RichText)
@@ -912,6 +914,63 @@ class Panel(QWidget):
         for name, why in skipped:
             self.status(t("{p}: infill left out ({why})", p=name, why=why), 8000)
         return out
+
+    # ---- STL import ---------------------------------------------------------------------
+    def import_stl(self) -> None:
+        from pathlib import Path
+        from PySide6.QtWidgets import QInputDialog
+        from . import stl_in
+        from .repair import WELD
+        path, _f = QFileDialog.getOpenFileName(
+            self.app.window, t("Import STL"), str(self._settings.value(_KEY + "stl_dir", "")),
+            "STL (*.stl *.STL)")
+        if not path:
+            return
+        self._settings.setValue(_KEY + "stl_dir", str(Path(path).parent))
+        units = list(stl_in.UNITS)
+        last = str(self._settings.value(_KEY + "stl_unit", "mm"))
+        unit, ok = QInputDialog.getItem(self.app.window, t("Import STL"), t("Unit of the file"),
+                                        units, units.index(last) if last in units else 0, False)
+        if not ok:
+            return
+        self._settings.setValue(_KEY + "stl_unit", unit)
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        try:
+            group, rep = self.load_stl_group(path, stl_in.UNITS[unit], WELD)
+        except (OSError, ValueError) as exc:
+            QApplication.restoreOverrideCursor()
+            self.status(t("Could not read {f}: {e}", f=Path(path).name, e=str(exc)), 8000)
+            return
+        QApplication.restoreOverrideCursor()
+        from core.history import InsertGroupCommand
+        vp = self.app.viewport
+        vp.history.execute(InsertGroupCommand(group))
+        vp.notify_scene_changed()
+        zoom = getattr(self.app.window, "_on_zoom_extents", None)
+        if zoom is not None:
+            zoom()
+        msg = t("{n} triangles imported", n=rep["triangles_out"])
+        if rep["collapsed"]:
+            msg += " — " + t("{k} edges under {d} mm merged", k=rep["collapsed"],
+                             d=num(2 * WELD * 1000, 1))
+        self.status(msg, 8000)
+        self.hole_info.setText(f"{GREY_DOT} " + msg)
+
+    @staticmethod
+    def load_stl_group(path, metres_per_unit: float, weld: float):
+        """A Group of the STL, cleaned for the host's weld: ``(group, report)``."""
+        from pathlib import Path
+        from core.group import Group
+        from core.mesh import Mesh
+        from . import stl_in
+        tris = stl_in.read_stl(path) * metres_per_unit
+        clean, rep = stl_in.prepare(tris, weld)
+        if not len(clean):
+            raise ValueError("no triangles")
+        mesh = Mesh()
+        mesh.add_faces_bulk(clean.reshape(-1, 3), np.full(len(clean), 3, np.int64),
+                            np.ones(len(clean), np.int64))
+        return Group(mesh, Path(path).stem), rep
 
     # ---- holes ------------------------------------------------------------------------
     def _hole_groups(self):
