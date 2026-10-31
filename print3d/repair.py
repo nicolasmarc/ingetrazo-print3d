@@ -37,7 +37,8 @@ class GroupHoles:
     def __init__(self, group) -> None:
         from .bodies import _triangles
         self.group = group
-        faces = [f for f in group.mesh.faces if not getattr(f, "interior", False)]
+        faces = [f for f in group.mesh.faces if not getattr(f, "interior", False)
+                 and len(set(map(id, getattr(f, "loop", [])))) >= 3]
         self.faces = faces
         tris, _cols, owner, _names = _triangles(faces, None)
         self.tris = tris
@@ -60,13 +61,31 @@ class GroupHoles:
         return None
 
 
+def clean(mesh) -> int:
+    """Remove what no surface needs and every hole search trips on: faces
+    with fewer than three distinct corners, and a second face over the
+    same corners as another. Returns how many went."""
+    seen = set()
+    gone = []
+    for f in list(mesh.faces):
+        corners = frozenset(map(id, getattr(f, "loop", [])))
+        if len(corners) < 3 or corners in seen:
+            gone.append(f)
+        else:
+            seen.add(corners)
+    for f in gone:
+        mesh.remove_face(f)
+    return len(gone)
+
+
 def fill_group(group, smooth: bool = True, only=None) -> dict:
     """Close the holes of ``group`` (all of them, or the loops whose
     index is in ``only``). Adds faces to the group's mesh; returns
     ``{"filled", "failed", "faces"}``. The caller snapshots for undo."""
     from PySide6.QtGui import QVector3D
-    gh = GroupHoles(group)
     mesh = group.mesh
+    cleaned = clean(mesh) if only is None else 0
+    gh = GroupHoles(group)
     filled = failed = added = 0
     for k, loop in enumerate(gh.loops):
         if only is not None and k not in only:
@@ -96,7 +115,7 @@ def fill_group(group, smooth: bool = True, only=None) -> dict:
                     e.soft = True
         filled += 1
         added += len(faces)
-    return {"filled": filled, "failed": failed, "faces": added}
+    return {"filled": filled, "failed": failed, "faces": added, "cleaned": cleaned}
 
 
 def _edges(mesh, faces):

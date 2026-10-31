@@ -81,7 +81,7 @@ class FillHolesCommand(Command):
         self.only = only or {}
         self.before: list = []
         self.after: list = []
-        self.done = {"filled": 0, "failed": 0, "faces": 0}
+        self.done = {"filled": 0, "failed": 0, "faces": 0, "cleaned": 0}
 
     def _touch(self, scene) -> None:
         from core.history import _dirty_group_chunks

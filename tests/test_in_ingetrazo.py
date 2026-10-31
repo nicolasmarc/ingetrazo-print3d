@@ -339,3 +339,23 @@ def test_click_a_rim_fills_that_hole_only(panel, window):
     assert panel.show_holes() == 1
     assert not solid_report(cube.mesh)[0]
     vp.history.undo()
+
+
+def test_flat_and_doubled_faces_are_cleared_before_filling(panel):
+    """Faces with two corners and doubled faces (seen on a bunny worked in
+    IngeTrazo) leave edges between four faces: they go first."""
+    from PySide6.QtGui import QVector3D
+    from core.solids import solid_report
+    from shapes import box
+    sc = panel.scene
+    sc.groups.clear()
+    t = box(0, 0, 0, 0.03, 0.03, 0.03)
+    cube = _group_from_tris(sc, "Cube", t[:-2])          # one side open
+    a, b = cube.mesh.faces[0].loop[0], cube.mesh.faces[0].loop[1]
+    cube.mesh.add_face([QVector3D(a.position), QVector3D(b.position)])   # flat
+    f0 = cube.mesh.faces[1]
+    cube.mesh.add_face([QVector3D(v.position) for v in f0.loop])          # doubled
+    panel.fill_all_holes()
+    ok, vol = solid_report(cube.mesh)
+    assert ok and vol == pytest.approx(0.03 ** 3, rel=1e-6)
+    panel.app.viewport.history.undo()

@@ -208,6 +208,8 @@ FR = {
         'Cliquez près du bord du trou à boucher (outil Sélection).',
     'No hole rim near the cursor.':
         'Aucun bord de trou près du curseur.',
+    '{n} flat or doubled faces removed':
+        '{n} faces aplaties ou en double retirées',
 }
 
 ES = {
@@ -413,6 +415,8 @@ ES = {
         'Haz clic cerca del borde del agujero que quieres tapar (herramienta Seleccionar).',
     'No hole rim near the cursor.':
         'Ningún borde de agujero cerca del cursor.',
+    '{n} flat or doubled faces removed':
+        '{n} caras aplastadas o duplicadas eliminadas',
 }
 
 _ALL = {"fr": FR, "es": ES}

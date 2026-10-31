@@ -965,6 +965,8 @@ class Panel(QWidget):
         msg = t("{n} holes filled ({f} faces)", n=d["filled"], f=d["faces"])
         if d["failed"]:
             msg += " — " + t("{n} could not be filled", n=d["failed"])
+        if d.get("cleaned"):
+            msg += " — " + t("{n} flat or doubled faces removed", n=d["cleaned"])
         self.status(msg, 6000)
         QTimer.singleShot(0, lambda: self._after_fill(msg))
 
@@ -979,13 +981,13 @@ class Panel(QWidget):
         if groups is None:
             return
         from .repair import GroupHoles
-        with_holes = [g for g in groups if GroupHoles(g).loops]
+        with_holes = [g for g in groups if GroupHoles(g).loops or _has_debris(g)]
         if not with_holes:
             self.hole_info.setText(f"{GREEN_DOT} " + t("No hole: every part is closed"))
             return
         self._fill(with_holes)
 
-    def arm_fill_one(self) -> None:
+    def arm_fill_one(self) -> None:  # noqa: D401
         if not self.layers.get("holes") and not self.show_holes():
             return
         self.picking_hole = True
@@ -1206,3 +1208,15 @@ class Panel(QWidget):
             return
         n = export.write_stl(path, bodies)
         self.status(t("{n} triangles written to {f}", n=n, f=path), 6000)
+
+
+def _has_debris(group) -> bool:
+    """Faces with fewer than three corners, or two faces over the same
+    corners: what :func:`repair.clean` removes."""
+    seen = set()
+    for f in group.mesh.faces:
+        c = frozenset(map(id, getattr(f, "loop", [])))
+        if len(c) < 3 or c in seen:
+            return True
+        seen.add(c)
+    return False

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 — 2026-10-31
+
+- Fill every hole first removes faces with fewer than three corners and
+  doubled faces (a worked bunny had 29 of them: edges between four faces,
+  so not watertight even with no hole left).
+
 ## 0.3.0 — 2026-10-31
 
 - Repair: show the holes of the parts (rims in orange), fill every hole in
