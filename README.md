@@ -2,7 +2,7 @@
 
 *English below.*
 
-![Le banc d'essai analysé : surplombs en rouge, cavité en violet, jeu de 0,20 mm en bleu](screenshots/print3d.png)
+![Le lapin de Stanford importé, réparé et analysé, avec l'aperçu en coupe du remplissage gyroïde](screenshots/print3d.png)
 
 Prépare un modèle IngeTrazo pour une imprimante 3D : contrôles,
 orientation, export. Panneau **Impression 3D** (onglet du volet latéral) et
