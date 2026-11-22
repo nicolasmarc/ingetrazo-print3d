@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.6 — 2026-11-22
+
+- The panel's tab has its own icon in IngeTrazo 0.6.2 and later (the tabs
+  show only an icon): a nozzle laying the top layer of a part, in the
+  theme's ink with the accent colour, redrawn when the theme or the accent
+  change. Older IngeTrazo is unchanged.
+
 ## 0.4.5 — 2026-11-01
 
 - The panel follows the document's units system: a metric document reads

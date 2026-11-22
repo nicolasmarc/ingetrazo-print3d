@@ -7,7 +7,7 @@ size against the bed), the orientation that needs the least support,
 laying a part flat on a face, hole repair, a gyroid infill under a skin, and export to
 3MF with colours or STL at the print scale. The analyses only draw over the view: the document changes
 only when you turn parts (one undo step)."""
-__version__ = "0.4.5"
+__version__ = "0.4.6"
 
 
 def setup(app):
@@ -15,7 +15,11 @@ def setup(app):
     from .panel import Panel
 
     panel = Panel(app)
-    dock = app.add_panel(t("3D Print"), panel)
+    try:
+        from .tab_icon import for_panel
+        dock = app.add_panel(t("3D Print"), panel, icon=for_panel())
+    except TypeError:                      # IngeTrazo before 0.6.2: no tab icons
+        dock = app.add_panel(t("3D Print"), panel)
     menu = app.add_menu(t("3D Print"))
     menu.addAction(t("3D Print panel"), lambda: app.show_panel(dock))
     menu.addAction(t("Analyse"), lambda: (app.show_panel(dock), panel.analyse_all()))

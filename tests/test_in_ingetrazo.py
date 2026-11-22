@@ -448,3 +448,17 @@ def test_the_panel_follows_the_document_units(panel):
         units.apply_units(sc, before)
         panel.app.viewport.notify_scene_changed()
     assert panel.wall.suffix().strip() == "mm" and panel.wall.value() == pytest.approx(0.8)
+
+
+def test_the_tab_has_its_own_icon(window):
+    from PySide6.QtWidgets import QDockWidget
+    dock = [d for d in window.findChildren(QDockWidget)
+            if d.objectName().startswith("extension_print3d")][0]
+    if not hasattr(window, "set_dock_icon"):
+        pytest.skip("IngeTrazo before 0.6.2: no tab icons")
+    # our drawing, under a key the host redraws with the theme; not the initial
+    assert dock.property("icon_key") == "print3d_panel"
+    assert not dock.property("icon_letter")
+    assert not dock.windowIcon().isNull()
+    from print3d import tab_icon
+    assert not tab_icon.qicon().isNull()
